@@ -1,22 +1,20 @@
 /*
 
-# nc localhost 4783
-
-> {"command":"getVersionRequest"}
-< {"command":"getVersionReply","data":"v1"}
+> {"command": "getVersionRequest"}
+< {"command": "getVersionReply", "data": "v1"}
 
 > {"command": "getUidRequest"}
-< {"command":"getUidReply","data":"0123456789abcdef0123456789abcdef"}
+< {"command": "getUidReply", "data": "0123456789abcdef0123456789abcdef"}
 
-> {"command":"getDevicesRequest"}
-< {"command":"getDevicesReply","data":[{"id":"ZWayVDev_zway_2","source":"z-wave","manufacturerId":316,"productTypeId":1,"productId":1,"productName":0,"elements":[{"id":"ZWayVDev_zway_2-0-37","deviceType":"switchBinary","probeType":"","level":"off","updateTime":1446564020},{"id":"ZWayVDev_zway_2-0-50-0","deviceType":"sensorMultilevel","probeType":"meterElectric_kilowatt_per_hour","level":0,"updateTime":1446564020},{"id":"ZWayVDev_zway_2-0-50-2","deviceType":"sensorMultilevel","probeType":"meterElectric_watt","level":0,"updateTime":1446564020},{"id":"ZWayVDev_zway_2-0-50-4","deviceType":"sensorMultilevel","probeType":"meterElectric_voltage","level":228.7000064,"updateTime":1446564020},{"id":"ZWayVDev_zway_2-0-50-5","deviceType":"sensorMultilevel","probeType":"meterElectric_ampere","level":0,"updateTime":1446564020},{"id":"ZWayVDev_zway_2-0-50-6","deviceType":"sensorMultilevel","probeType":"meterElectric_power_factor","level":0,"updateTime":1446564020}]}]}
+> {"command": "getDevicesRequest"}
+< {"command": "getDevicesReply", "data":[{"id": "ZWayVDev_zway_2", "source": "z-wave", "manufacturerId":316,"productTypeId":1,"productId":1,"productName":0,"elements":[{"id": "ZWayVDev_zway_2-0-37", "deviceType": "switchBinary", "probeType": "", "level": "off", "updateTime":1446564020},{"id": "ZWayVDev_zway_2-0-50-0", "deviceType": "sensorMultilevel", "probeType": "meterElectric_kilowatt_per_hour", "level":0,"updateTime":1446564020},{"id": "ZWayVDev_zway_2-0-50-2", "deviceType": "sensorMultilevel", "probeType": "meterElectric_watt", "level":0,"updateTime":1446564020},{"id": "ZWayVDev_zway_2-0-50-4", "deviceType": "sensorMultilevel", "probeType": "meterElectric_voltage", "level":228.7000064,"updateTime":1446564020},{"id": "ZWayVDev_zway_2-0-50-5", "deviceType": "sensorMultilevel", "probeType": "meterElectric_ampere", "level":0,"updateTime":1446564020},{"id": "ZWayVDev_zway_2-0-50-6", "deviceType": "sensorMultilevel", "probeType": "meterElectric_power_factor", "level":0,"updateTime":1446564020}]}]}
 
-< {"command":"deviceUpdate","data":{"id":"ZWayVDev_zway_2","source":"z-wave","manufacturerId":316,"productTypeId":1,"productId":1,"productName":0,"elements":[{"id":"ZWayVDev_zway_2-0-37","deviceType":"switchBinary","probeType":"","level":"off","updateTime":1446564883},{"id":"ZWayVDev_zway_2-0-50-0","deviceType":"sensorMultilevel","probeType":"meterElectric_kilowatt_per_hour","level":0,"updateTime":1446564820},{"id":"ZWayVDev_zway_2-0-50-2","deviceType":"sensorMultilevel","probeType":"meterElectric_watt","level":0,"updateTime":1446564820},{"id":"ZWayVDev_zway_2-0-50-4","deviceType":"sensorMultilevel","probeType":"meterElectric_voltage","level":228.7000064,"updateTime":1446564820},{"id":"ZWayVDev_zway_2-0-50-5","deviceType":"sensorMultilevel","probeType":"meterElectric_ampere","level":0,"updateTime":1446564820},{"id":"ZWayVDev_zway_2-0-50-6","deviceType":"sensorMultilevel","probeType":"meterElectric_power_factor","level":0,"updateTime":1446564820}]}}
+< {"command": "deviceUpdate", "data":{"id": "ZWayVDev_zway_2", "source": "z-wave", "manufacturerId":316,"productTypeId":1,"productId":1,"productName":0,"elements":[{"id": "ZWayVDev_zway_2-0-37", "deviceType": "switchBinary", "probeType": "", "level": "off", "updateTime":1446564883},{"id": "ZWayVDev_zway_2-0-50-0", "deviceType": "sensorMultilevel", "probeType": "meterElectric_kilowatt_per_hour", "level":0,"updateTime":1446564820},{"id": "ZWayVDev_zway_2-0-50-2", "deviceType": "sensorMultilevel", "probeType": "meterElectric_watt", "level":0,"updateTime":1446564820},{"id": "ZWayVDev_zway_2-0-50-4", "deviceType": "sensorMultilevel", "probeType": "meterElectric_voltage", "level":228.7000064,"updateTime":1446564820},{"id": "ZWayVDev_zway_2-0-50-5", "deviceType": "sensorMultilevel", "probeType": "meterElectric_ampere", "level":0,"updateTime":1446564820},{"id": "ZWayVDev_zway_2-0-50-6", "deviceType": "sensorMultilevel", "probeType": "meterElectric_power_factor", "level":0,"updateTime":1446564820}]}}
 
 > {"command": "setHomeMode", "data": "away"}
 
 > {"command": "getHomeModeRequest"}
-< {"command":"getHomeModeReply","data":{"homeMode":"away"}}
+< {"command": "getHomeModeReply", "data":{"homeMode": "away"}}
 
 > {"command": "deviceAction", "data": {"id": "ZWayVDev_zway_2-0-37", "command": "on"}}
 
@@ -29,15 +27,15 @@
 function O7() {
   var self = this;
 
-  this.O7_HOST = "localhostk";
+  this.O7_WS = "ws://localhost:4783";
   this.O7_PORT = 4783;
   this.TERMINATOR = "\n\n";
   this.RECONNECT_PERIOD = 5
   
+  /* TODO Change to WS Server
   this.server_clients = [];
   this.server_sock = new sockets.tcp();
 
-  this.server_sock.reusable(); // TODO // remove this in future // just to re-run the s/w during debug
   this.server_sock.bind(this.O7_PORT);
   this.server_sock.onconnect = function(host, port) {
     this.buffer = "";
@@ -56,6 +54,7 @@ function O7() {
     self.handleRecv(this, data);
   };
   this.server_sock.listen();
+*/
 
   this.clientConnect();  
   
@@ -108,27 +107,32 @@ O7.prototype.handleRecv = function(sock, data) {
 O7.prototype.clientConnect = function() {
   var self = this;
   
-  this.client_sock = new sockets.tcp();
-  this.client_sock.onconnect = function(host, port) {
+  this.client_sock = new sockets.websocket(this.O7_WS);
+  this.client_sock.onconnect = function() {
     this.buffer = "";
     self.sendObjToSock(this, {
       command: "hello"
     });
   };
-  this.client_sock.onrecv = function(data, host, port) {
-    self.handleRecv(this, data);
+  this.client_sock.onmessage = function(ev) {
+    self.handleRecv(this, ev.data);
   };
-  this.client_sock.onclose = function(host, port) {
-    this.close();
+  this.client_sock.onclose = function() {
+    self.debug("Closing client socket");
+    //this.close(); // TODO Wait for bug fix in WS close
     self.client_sock = null;
     self.clientConnect();
+  };
+  this.client_sock.onerror = function(ev) {
+    self.debug("Willing to close client socket");
+    //this.close(); // TODO Wait for bug fix in WS close
   };
   
   try {
     this.client_sock.connect(this.O7_HOST, this.O7_PORT);
   } catch(e) {
     self.warning("Can not connect O7");
-    self.client_sock.close();
+    //self.client_sock.close();
     self.client_sock = null;
     this.client_sock_reconnect_timer = setTimeout(function() {
       self.clientConnect();
@@ -240,6 +244,7 @@ O7.prototype.notifyDeviceChange = function(id) {
   } catch(e) {
     this.error("Socket send error: " + e);
   }
+  /* TODO Change to WS server
   for (var i in this.server_clients) {
     try {
       this.sendObjToSock(this.server_clients[i], {
@@ -250,6 +255,7 @@ O7.prototype.notifyDeviceChange = function(id) {
       this.error("Socket send error: " + e);
     }
   }
+  */
 };
 
 O7.prototype.JSONifyDevice = function(id) {
@@ -302,7 +308,7 @@ O7.prototype.deviceToJSON = function(dev) {
       deviceType: deviceType,
       probeType: probeType || "",
       level: _vDev.get("metrics:level"),
-      /*
+      /* TODO
       [color: r: <int>, g: <int>, b: <int>]("switchColor"),
       [max: <int>]("switchMultilevel"),
       [min: <int>]("switchMultilevel"),
