@@ -24,16 +24,19 @@
 
 
 // main O7 object constructor
+// TODO: heartbeat, config to json
 function O7() {
   var self = this;
 
   this.O7_PROTOCOL = "ws";
-  this.O7_HOST     = "localhost";
+  this.O7_HOST     = "smart.local";
   this.O7_PORT     = 4783;
   this.O7_PATH     = "/";
+  this.O7_QUERY     = "client=zway&uuid=98b6d6b7-83d7-4e4e-9019-80a50b1ce9e5";
 
-  this.O7_WS = this.O7_PROTOCOL + "://" + this.O7_HOST + (this.O7_PORT.length > 0 ? ":" + this.O7_PORT : "") + this.O7_PATH;
+  this.O7_WS = this.O7_PROTOCOL + "://" + this.O7_HOST + (this.O7_PORT.toString().length > 0 ? ":" + this.O7_PORT : "") + this.O7_PATH + '?' + this.O7_QUERY;
 
+  console.log(this.O7_WS);
   this.RECONNECT_PERIOD = 5;
 
   /* TODO Change to WS Server
@@ -127,10 +130,14 @@ O7.prototype.clientConnect = function() {
     self.debug("Closing client socket");
     //this.close(); // TODO Wait for bug fix in WS close
     self.client_sock = null;
-    self.clientConnect();
+
+    //this.client_sock_reconnect_timer = setTimeout(function() {
+    //  self.clientConnect();
+    //}, this.RECONNECT_PERIOD*1000);
   };
 
   this.client_sock.onerror = function(ev) {
+    console.log(JSON.stringify(ev));
     self.debug("Willing to close client socket");
     //this.close(); // TODO Wait for bug fix in WS close
 
@@ -157,7 +164,7 @@ O7.prototype.parseMessage = function(sock, message) {
     case "getUidRequest":
       this.sendObjToSock(sock, {
         command: "getUidReply",
-        data: "adccb059-87cf-4a6d-a7f1-436d25e9713d" // Example GUID
+        data: "98b6d6b7-83d7-4e4e-9019-80a50b1ce9e5" // Example GUID
       });
       break;
     case "getHomeModeRequest":
@@ -234,7 +241,7 @@ O7.prototype.getMasterDevice = function(id) {
 };
 
 O7.prototype.sendObjToSock = function(sock, obj) {
-  sock.send(JSON.stringify(obj) + this.TERMINATOR);
+  sock.send(JSON.stringify(obj));
 };
 
 O7.prototype.notifyDeviceChange = function(id) {
