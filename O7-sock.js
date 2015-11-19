@@ -36,7 +36,6 @@ function O7() {
 
   this.O7_WS = this.O7_PROTOCOL + "://" + this.O7_HOST + (this.O7_PORT.toString().length > 0 ? ":" + this.O7_PORT : "") + this.O7_PATH + '?' + this.O7_QUERY;
 
-  console.log(this.O7_WS);
   this.RECONNECT_PERIOD = 5;
 
   /* TODO Change to WS Server
@@ -137,7 +136,6 @@ O7.prototype.clientConnect = function() {
   };
 
   this.client_sock.onerror = function(ev) {
-    console.log(JSON.stringify(ev));
     self.debug("Willing to close client socket");
     //this.close(); // TODO Wait for bug fix in WS close
 
