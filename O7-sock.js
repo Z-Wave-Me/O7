@@ -155,6 +155,13 @@ O7.prototype.clientConnect = function() {
     self.debug("Closing client socket");
     //this.close(); // TODO Wait for bug fix in WS close
     self.client_sock = null;
+
+    setTimeout(function() {
+      if (self.client_sock === null) {
+        self.debug("Reconnecting...");
+        self.clientConnect();
+      }
+    }, self.RECONNECT_PERIOD * 1000);
   };
 
   this.client_sock.onerror = function(ev) {
@@ -162,18 +169,6 @@ O7.prototype.clientConnect = function() {
     //this.close(); // TODO Wait for bug fix in WS close
     self.client_sock = null;
   };
-
-  /**
-   * Reconnect `RECONNECT_PERIOD` seconds
-   */
-  setInterval(function() {
-    // TODO: Make connection status check
-    if(self.client_sock == null) {
-      self.debug("Reconnecting...");
-      self.clientConnect();
-    }
-  }, this.RECONNECT_PERIOD*1000);
-
 };
 
 
@@ -324,13 +319,10 @@ O7.prototype.sendObjToSock = function(sock, obj, command) {
 };
 
 /**
- * Notification about device change state
- * @param id Device ID
+ * Notification O7 and clients
+ * @param data
  */
-O7.prototype.notifyDeviceChange = function(id) {
-  var data = this.JSONifyDevice(this.getMasterDevice(id));
-  data.action = "deviceUpdate";
-
+O7.prototype.notify = function(data) {
   try {
     this.client_sock && this.sendObjToSock(this.client_sock, data);
   } catch(e) {
@@ -339,16 +331,24 @@ O7.prototype.notifyDeviceChange = function(id) {
 
   /* TODO Change to WS server
    for (var i in this.server_clients) {
-   try {
-   this.sendObjToSock(this.server_clients[i], {
-   command: "deviceUpdate",
-   data: this.JSONifyDevice(this.getMasterDevice(id))
-   });
-   } catch(e) {
-   this.error("Socket send error: " + e);
-   }
+     try {
+       this.sendObjToSock(this.server_clients[i], data);
+     } catch(e) {
+       this.error("Socket send error: " + e);
+     }
    }
    */
+};
+
+/**
+ * Notification about device change state
+ * @param id Device ID
+ */
+O7.prototype.notifyDeviceChange = function(id) {
+  var data = this.JSONifyDevice(this.getMasterDevice(id));
+  data.action = "deviceUpdate";
+
+  this.notify(data);
 };
 
 O7.prototype.JSONifyDevice = function(id) {
