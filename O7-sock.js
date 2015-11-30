@@ -26,12 +26,18 @@
 // main O7 object constructor
 function O7() {
   var self = this;
+  
+  // Save Z-Way context for future use
+  this.zway = this.getMainZWay();
+  if (this.zway === null) {
+    return;
+  }
 
-  this.O7_UUID = "98b6d6b7-83d7-4e4e-9019-80a50b1ce9e5";
+  this.O7_UUID = this.formatUUID(this.zway.controller.data.uuid.value);
   this.O7_PROTOCOL = "ws";
   this.O7_HOST     = "smart.local";
   this.O7_PORT     = 4783;
-  this.O7_PATH     = "/?uuid=98b6d6b7-83d7-4e4e-9019-80a50b1ce9e5&token=auth_token&source=controller";
+  this.O7_PATH     = "/?uuid=" + this.O7_UUID + "&token=auth_token&source=controller";
 
   this.O7_WS = this.O7_PROTOCOL + "://" + this.O7_HOST + (this.O7_PORT.toString().length > 0 ? ":" + this.O7_PORT : "") + this.O7_PATH;
 
@@ -61,8 +67,10 @@ function O7() {
    this.server_sock.listen();
    */
 
+  // connect to O7
   this.clientConnect();
 
+  // create vDev <=> O7 Dev bindings
   this.devices = new O7Devices();
 
   // catch newly created devices
@@ -75,6 +83,8 @@ function O7() {
     self.addDevice.call(self, vDev);
   });
 }
+
+// Helpers
 
 O7.prototype.error = function() {
   var args = Array.prototype.slice.call(arguments);
@@ -95,7 +105,15 @@ O7.prototype.debug = function() {
 };
 
 O7.prototype.notImplemented = function(name) {
-  console.log("Warining:", "Function \"" + name + "\" not implementeda");
+  console.log("Warining:", "Function \"" + name + "\" not implemented");
+};
+
+O7.prototype.formatUUID = function(uuid) {
+  if (uuid.length !== 32) {
+    this.error("UUID length is wrong: '" + uuid + "'");
+    return "00000000-0000-0000-0000-000000000000";
+  }
+  return uuid.substr(0, 8) + "-" + uuid.substr(8, 4) + "-" + uuid.substr(12, 4) + "-" + uuid.substr(16, 4) + "-" + uuid.substr(20, 12);
 };
 
 /**
@@ -127,9 +145,8 @@ O7.prototype.clientConnect = function() {
 
   };
 
-
   this.client_sock.onmessage = function(ev) {
-    self.debug(' Message: ' + JSON.stringify(ev.data));
+    self.debug('Message: ' + JSON.stringify(ev.data));
     self.handleRecv(this, ev.data);
   };
 
@@ -172,7 +189,6 @@ O7.prototype.parseMessage = function(sock, message) {
       msg  = typeof(obj.message) == 'undefined' ? {action: 'ping'} : obj.message,
       act  = msg.action;
 
-
   delete msg.action;
 
   this.debug("ACTION: " + act);
@@ -186,7 +202,7 @@ O7.prototype.parseMessage = function(sock, message) {
     case "getUidRequest":
       this.sendObjToSock(sock, {
         action: "getUidReply",
-        data: "98b6d6b7-83d7-4e4e-9019-80a50b1ce9e5" // Example GUID
+        data: this.O7_UUID
       });
       break;
     case "getHomeModeRequest":
@@ -266,6 +282,24 @@ O7.prototype.getMasterDevice = function(id) {
 };
 
 /**
+ * There might be few Z-Way objects. We select first one as main.
+ */
+O7.prototype.getMainZWay = function() {
+  if (typeof zway === "object" && zway) {
+    this.debug("Using default Z-Way 'zway'");
+    return zway;
+  }
+  var Z;
+  if (typeof ZWave === "object" && (Z = Object.keys(ZWave)) && Z.length && ZWave[Z[0]])
+  {
+    this.debug("Using first found Z-Way '" + Z[0] + "'");
+    return ZWave[Z[0]].zway;
+  }
+  this.debug("No Z-Way found");
+  return null;
+};
+
+/**
  *
  * @param sock WS-client instance
  * @param obj Data for sending
@@ -274,13 +308,13 @@ O7.prototype.sendObjToSock = function(sock, obj, command) {
   command = typeof(command) == 'undefined' ? 'message' : command;
 
   var data = {
-    identifier: "{\"channel\": \"ZwayChannel\", \"uuid\": \"98b6d6b7-83d7-4e4e-9019-80a50b1ce9e5\"}", // uuid подставить рельаный
+    identifier: "{\"channel\": \"ZwayChannel\", \"uuid\": \"" + this.O7_UUID + "\"}", // uuid подставить рельаный
     command: command,
     data: JSON.stringify(obj) // ВАЖНО: data - это json-строка, а не объект
   }, message = JSON.stringify(data);
 
 
-  if(sock != null) {
+  if (sock != null) {
     this.debug('Send: ' + message);
     sock.send(message);
   } else {
