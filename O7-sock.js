@@ -49,23 +49,23 @@ function O7() {
 
    this.server_sock.bind(this.O7_PORT);
    this.server_sock.onconnect = function(host, port) {
-   this.buffer = "";
-   self.debug("New client: " + host + ":" + port);
-   if (self.server_clients.indexOf(this) === -1) {
-   self.server_clients.push(this);
-   }
+     this.buffer = "";
+     self.debug("New client: " + host + ":" + port);
+     if (self.server_clients.indexOf(this) === -1) {
+       self.server_clients.push(this);
+     }
    };
    this.server_sock.onclose = function(host, port) {
-   var indx = self.server_clients.indexOf(this);
-   if (indx !== -1) {
-   delete self.server_clients[indx];
-   }
+     var indx = self.server_clients.indexOf(this);
+     if (indx !== -1) {
+       delete self.server_clients[indx];
+     }
    };
    this.server_sock.onrecv = function(data, host, port) {
-   self.handleRecv(this, data);
+     self.parseMessage(this, data);
    };
    this.server_sock.listen();
-   */
+  */
 
   // connect to O7
   this.clientConnect();
@@ -116,18 +116,6 @@ O7.prototype.formatUUID = function(uuid) {
   return uuid.substr(0, 8) + "-" + uuid.substr(8, 4) + "-" + uuid.substr(12, 4) + "-" + uuid.substr(16, 4) + "-" + uuid.substr(20, 12);
 };
 
-/**
- * Handle received message
- *
- * @param sock websocket
- * @param message JSON-string
- */
-O7.prototype.handleRecv = function(sock, message) {
-  this.debug("Received: " + message);
-  this.parseMessage(sock, message);
-};
-
-
 O7.prototype.clientConnect = function() {
   var self = this;
 
@@ -139,15 +127,10 @@ O7.prototype.clientConnect = function() {
 
     // Subscription for channel
     self.sendObjToSock(this, {}, "subscribe");
-
-    // PING-PONG
-    self.sendObjToSock(this, {action: "pong"});
-
   };
 
   this.client_sock.onmessage = function(ev) {
-    self.debug('Message: ' + JSON.stringify(ev.data));
-    self.handleRecv(this, ev.data);
+    self.parseMessage(this, ev.data);
   };
 
 
@@ -177,18 +160,16 @@ O7.prototype.clientConnect = function() {
  * @param sock WS-object
  * @param message Client message
  */
-O7.prototype.parseMessage = function(sock, message) {
-  this.debug("Parsing: " + message);
+O7.prototype.parseMessage = function(sock, data) {
   var self = this,
-      obj  = JSON.parse(message),
-      msg  = typeof(obj.message) == 'undefined' ? {action: 'ping'} : obj.message,
-      act  = msg.action;
+      obj  = JSON.parse(data),
+      msg  = obj.message;
 
-  delete msg.action;
+  if (typeof msg !== "object") return;
 
-  this.debug("ACTION: " + act);
-
-  switch (act) {
+  this.debug("Parsing: " + data);
+  
+  switch (msg.action) {
     case "getVersionRequest":
       this.sendObjToSock(sock, {
         action: "getVersionReply",
@@ -202,7 +183,7 @@ O7.prototype.parseMessage = function(sock, message) {
       break;
     case "getHomeModeRequest":
       this.sendObjToSock(sock, {
-        command: "getHomeModeReply",
+        action: "getHomeModeReply",
         data: this.getHomeMode()
       });
       break;
@@ -230,13 +211,12 @@ O7.prototype.parseMessage = function(sock, message) {
       });
       break;
     case "deviceAdd":
+      this.deviceAdd();
       break;
     case "deviceRemove":
+      this.deviceRemove(obj.data);
       break;
     case "setScenarii":
-      break;
-
-    case "ping":
       break;
   }
 };
@@ -345,10 +325,10 @@ O7.prototype.notify = function(data) {
  * @param id Device ID
  */
 O7.prototype.notifyDeviceChange = function(id) {
-  var data = this.JSONifyDevice(this.getMasterDevice(id));
-  data.action = "deviceUpdate";
-
-  this.notify(data);
+  this.notify({
+    action: "deviceUpdate",
+    data: this.JSONifyDevice(this.getMasterDevice(id))
+  });
 };
 
 O7.prototype.JSONifyDevice = function(id) {
@@ -417,6 +397,62 @@ O7.prototype.deviceToJSON = function(dev) {
 
 O7.prototype.JSONifyDevices = function() {
   return this.devices.devices.map(this.deviceToJSON);
+};
+
+O7.prototype.deviceRemove = function(dev) {
+  var self = this,
+      o7Dev = this.devices.get(dev);
+  if (!o7Dev) {
+    this.debug("Device " + dev + " not found");
+    self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Устройство не найдено"}});
+  }
+
+  this.debug("Removing " + dev);
+  if (ZWave && ZWave[o7Dev.zwayName] && ZWave[o7Dev.zwayName].zway && ZWave[o7Dev.zwayName].zway.devices[o7Dev.zwayId]) {
+    var zway = ZWave[o7Dev.zwayName].zway,
+        zDev = zway.devices[o7Dev.zwayId];
+    
+    if (zway.controller.data.controllerState.value != 0) {
+      self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Занят"}});
+    }
+    
+    if (zDev.data.isFailed.value) {
+      // device is a failed one, we can remove it without user interaction
+      try {
+        zway.RemoveFailedNode(o7Dev.zwayId, function() {
+          if (zway.controller.data.lastExcludedDevice.value == o7Dev.zwayId) { // non-strict == to allow compare strings with numbers
+            self.notify({"action": "deviceRemoveUpdate", "data": {"status": "success", "id": dev}});
+          } else {
+            self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Не удалось"}});
+          }
+        }, function() {
+          self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Не удалось"}});
+        });
+        this.notify({"action": "deviceRemoveUpdate", "data": {"status": "started", "id": dev}});
+      } catch (e) {
+        self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Что-то пошло не так"}});
+      }
+    } else {
+      // device is not failed, user need to press a button
+      try {
+        zway.RemoveNodeFromNetwork(true, true, function() {
+          if (zway.controller.data.lastExcludedDevice.value == o7Dev.zwayId) { // non-strict == to allow compare strings with numbers
+            self.notify({"action": "deviceRemoveUpdate", "data": {"status": "success", "id": dev}});
+          } else {
+            self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Не удалось"}});
+          }
+        }, function() {
+          self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Не удалось"}});
+        });
+        this.notify({"action": "deviceRemoveUpdate", "data": {"status": "started", "id": dev}});
+        this.notify({"action": "deviceRemoveUpdate", "data": {"status": "userInteractionRequired", "id": dev}});
+      } catch (e) {
+        self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Что-то пошло не так"}});
+      }
+    }
+  } else {
+    self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Что-то пошло не так (не нашёл zway)"}});
+  }
 };
 
 // Subdevice object
