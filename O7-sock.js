@@ -43,29 +43,32 @@ function O7() {
 
   this.RECONNECT_PERIOD = 7;
 
-  /* TODO Change to WS Server
-   this.server_clients = [];
-   this.server_sock = new sockets.tcp();
+  // start server for local clients
+  this.server_clients = [];
+  this.server_sock = new sockets.websocket(this.O7_PORT);
 
-   this.server_sock.bind(this.O7_PORT);
-   this.server_sock.onconnect = function(host, port) {
-     this.buffer = "";
-     self.debug("New client: " + host + ":" + port);
-     if (self.server_clients.indexOf(this) === -1) {
-       self.server_clients.push(this);
-     }
-   };
-   this.server_sock.onclose = function(host, port) {
-     var indx = self.server_clients.indexOf(this);
-     if (indx !== -1) {
-       delete self.server_clients[indx];
-     }
-   };
-   this.server_sock.onrecv = function(data, host, port) {
-     self.parseMessage(this, data);
-   };
-   this.server_sock.listen();
-  */
+  this.server_sock.onconnect = function() {
+    self.debug("New client connected");
+    if (self.server_clients.indexOf(this) === -1) {
+      self.server_clients.push(this);
+    }
+  };
+  this.server_sock.onclose = function() {
+    if (this === self.server_sock) {
+      self.debug("Closing server");
+    } else {
+      var indx = self.server_clients.indexOf(this);
+      if (indx !== -1) {
+        delete self.server_clients[indx];
+      }
+    }
+  };
+  this.server_sock.onerror = function() {
+    self.debug("Client error");
+  };
+  this.server_sock.onmessage = function(ev) {
+    self.parseMessage(this, ev.data);
+  };
 
   // connect to O7
   this.clientConnect();
@@ -109,7 +112,7 @@ O7.prototype.notImplemented = function(name) {
 };
 
 O7.prototype.formatUUID = function(uuid) {
-  if (uuid.length !== 32) {
+  if (!uuid || uuid.length !== 32) {
     this.error("UUID length is wrong: '" + uuid + "'");
     return "00000000-0000-0000-0000-000000000000";
   }
@@ -309,15 +312,13 @@ O7.prototype.notify = function(data) {
     this.error("Socket send error: " + e);
   }
 
-  /* TODO Change to WS server
-   for (var i in this.server_clients) {
-     try {
-       this.sendObjToSock(this.server_clients[i], data);
-     } catch(e) {
-       this.error("Socket send error: " + e);
-     }
-   }
-   */
+  for (var i in this.server_clients) {
+    try {
+      this.sendObjToSock(this.server_clients[i], data);
+    } catch(e) {
+      this.error("Socket send error: " + e);
+    }
+  }
 };
 
 /**
