@@ -34,6 +34,7 @@ function O7() {
   }
 
   this.O7_UUID = this.formatUUID(this.zway.controller.data.uuid.value);
+  // this.O7_UUID = "058943ba-97b0-4b6c-3f85-e130592feaeb"; // для отладки на старый стиках/RaZberry или для жётской привязки к UUID
   this.O7_PROTOCOL = "ws";
   this.O7_HOST     = "smart.local";
   this.O7_PORT     = 4783;
