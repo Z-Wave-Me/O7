@@ -398,7 +398,11 @@ O7.prototype.deviceToJSON = function(dev) {
 };
 
 O7.prototype.JSONifyDevices = function() {
-  return this.devices.devices.map(this.deviceToJSON);
+  var self = this;
+  
+  return this.devices.devices.map(function(_d) {
+    self.deviceToJSON(_d);
+  });
 };
 
 O7.prototype.deviceRemove = function(dev) {
