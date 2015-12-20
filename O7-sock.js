@@ -3,9 +3,6 @@
  > {"command": "getVersionRequest"}
  < {"command": "getVersionReply", "data": "v1"}
 
- > {"command": "getUidRequest"}
- < {"command": "getUidReply", "data": "0123456789abcdef0123456789abcdef"}
-
  > {"command": "getDevicesRequest"}
  < {"command": "getDevicesReply", "data":[{"id": "ZWayVDev_zway_2", "source": "z-wave", "manufacturerId":316,"productTypeId":1,"productId":1,"productName":0,"elements":[{"id": "ZWayVDev_zway_2-0-37", "deviceType": "switchBinary", "probeType": "", "level": "off", "updateTime":1446564020},{"id": "ZWayVDev_zway_2-0-50-0", "deviceType": "sensorMultilevel", "probeType": "meterElectric_kilowatt_per_hour", "level":0,"updateTime":1446564020},{"id": "ZWayVDev_zway_2-0-50-2", "deviceType": "sensorMultilevel", "probeType": "meterElectric_watt", "level":0,"updateTime":1446564020},{"id": "ZWayVDev_zway_2-0-50-4", "deviceType": "sensorMultilevel", "probeType": "meterElectric_voltage", "level":228.7000064,"updateTime":1446564020},{"id": "ZWayVDev_zway_2-0-50-5", "deviceType": "sensorMultilevel", "probeType": "meterElectric_ampere", "level":0,"updateTime":1446564020},{"id": "ZWayVDev_zway_2-0-50-6", "deviceType": "sensorMultilevel", "probeType": "meterElectric_power_factor", "level":0,"updateTime":1446564020}]}]}
 
@@ -42,6 +39,7 @@ function O7() {
   
   this.O7_UUID = this.formatUUID(this.zway.controller.data.uuid.value);
   // this.O7_UUID = "058943ba-97b0-4b6c-3f85-e130592feaeb"; // для отладки на старый стиках/RaZberry или для жётской привязки к UUID
+  this.O7_MAC = this.readMAC();
   this.O7_PROTOCOL = "wss";
   this.O7_HOST     = "smart.local";
   this.O7_PORT     = 4443;
@@ -83,7 +81,7 @@ function O7() {
   this.server_discovery.reusable();
   this.server_discovery.bind("255.255.255.255", 4444);
   this.server_discovery.onrecv = function(data, host, port) {
-    this.sendto('{"uuid": "' + self.O7_UUID + '"}', host, port);
+    this.sendto('{"uuid": "' + self.O7_UUID + '", "mac": "' + self.O7_MAC + '"}', host, port);
   };
   this.server_discovery.listen();
 
@@ -134,6 +132,21 @@ O7.prototype.formatUUID = function(uuid) {
     return "00000000-0000-0000-0000-000000000000";
   }
   return uuid.substr(0, 8) + "-" + uuid.substr(8, 4) + "-" + uuid.substr(12, 4) + "-" + uuid.substr(16, 4) + "-" + uuid.substr(20, 12);
+};
+
+O7.prototype.readMAC = function() {
+  var zeroMAC = "00:00:00:00:00:00";
+  try {
+    var re = /^(([A-Fa-f0-9]{1,2}[:]){5}[A-Fa-f0-9]{1,2}[,]?)+$/,
+        mac = fs.loadJSON("mac.js");
+    if (re.test(mac)) {
+      return mac;
+    } else {
+      return zeroMAC;
+    }
+  } catch (e) {
+    return zeroMAC;
+  }
 };
 
 O7.prototype.clientConnect = function() {
@@ -194,12 +207,6 @@ O7.prototype.parseMessage = function(sock, data) {
       this.sendObjToSock(sock, {
         action: "getVersionReply",
         data: "v1"});
-      break;
-    case "getUidRequest":
-      this.sendObjToSock(sock, {
-        action: "getUidReply",
-        data: this.O7_UUID
-      });
       break;
     case "getHomeModeRequest":
       this.sendObjToSock(sock, {
@@ -303,7 +310,7 @@ O7.prototype.sendObjToSock = function(sock, obj, command) {
   command = typeof(command) == 'undefined' ? 'message' : command;
 
   var data = {
-    identifier: "{\"channel\": \"ZwayChannel\", \"uuid\": \"" + this.O7_UUID + "\"}", // uuid подставить рельаный
+    identifier: "{\"channel\": \"ZwayChannel\", \"uuid\": \"" + this.O7_UUID + "\", \"mac\": \"" + this.O7_MAC + "\"}", // uuid подставить рельаный
     command: command,
     data: JSON.stringify(obj) // ВАЖНО: data - это json-строка, а не объект
   }, message = JSON.stringify(data);
