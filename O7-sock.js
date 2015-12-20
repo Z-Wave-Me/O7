@@ -71,6 +71,15 @@ function O7() {
     self.parseMessage(this, ev.data);
   };
 
+  // start UDP broadcast UUID discovery service
+  this.server_discovery = new sockets.udp();
+  this.server_discovery.reusable();
+  this.server_discovery.bind("255.255.255.255", 4444);
+  this.server_discovery.onrecv = function(data, host, port) {
+    this.sendto('{"uuid": "' + self.O7_UUID + '"}', host, port);
+  };
+  this.server_discovery.listen();
+
   // connect to O7
   this.clientConnect();
 
