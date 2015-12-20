@@ -28,10 +28,12 @@ function O7() {
   var self = this;
   
   // Save Z-Way context for future use
-  this.zway = this.getMainZWay();
-  if (this.zway === null) {
+  var zwayObj = this.getMainZWay();
+  if (zwayObj === null) {
     return;
   }
+  this.zway = zwayObj.zway;
+  this.zwayName = zwayObj.zwayName;
 
   if (!sockets.websocket) {
     this.error("Websockets are not supported. Stopping.");
@@ -280,13 +282,13 @@ O7.prototype.getMasterDevice = function(id) {
 O7.prototype.getMainZWay = function() {
   if (typeof zway === "object" && zway) {
     this.debug("Using default Z-Way 'zway'");
-    return zway;
+    return {zway: zway, zwayName: "zway"};
   }
   var Z;
   if (typeof ZWave === "object" && (Z = Object.keys(ZWave)) && Z.length && ZWave[Z[0]])
   {
     this.debug("Using first found Z-Way '" + Z[0] + "'");
-    return ZWave[Z[0]].zway;
+    return {zway: ZWave[Z[0]].zway, zwayName: Z[0]};
   }
   this.debug("No Z-Way found");
   return null;
