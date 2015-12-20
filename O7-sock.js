@@ -26,7 +26,7 @@
 // main O7 object constructor
 function O7() {
   var self = this;
-  
+
   // Save Z-Way context for future use
   var zwayObj = this.getMainZWay();
   if (zwayObj === null) {
@@ -188,7 +188,7 @@ O7.prototype.parseMessage = function(sock, data) {
   if (typeof msg !== "object") return;
 
   this.debug("Parsing: " + data);
-  
+
   switch (msg.action) {
     case "getVersionRequest":
       this.sendObjToSock(sock, {
@@ -227,14 +227,14 @@ O7.prototype.parseMessage = function(sock, data) {
     case "getDeviceRequest":
       this.sendObjToSock(sock, {
         action: "getDeviceReply",
-        data: this.JSONifyDevice(obj.data)
+        data: this.JSONifyDevice(msg.id)
       });
       break;
     case "deviceAdd":
       this.deviceAdd();
       break;
     case "deviceRemove":
-      this.deviceRemove(obj.data);
+      this.deviceRemove(msg.id);
       break;
     case "setScenarii":
       break;
@@ -352,6 +352,7 @@ O7.prototype.notifyDeviceChange = function(id) {
 O7.prototype.JSONifyDevice = function(id) {
   var dev = this.devices.get(id);
 
+  this.debug(JSON.stringify(dev));
   if (dev) {
     return this.deviceToJSON(dev);
   }
@@ -539,11 +540,11 @@ O7.prototype.deviceRemove = function(dev) {
   if (ZWave && ZWave[o7Dev.zwayName] && ZWave[o7Dev.zwayName].zway && ZWave[o7Dev.zwayName].zway.devices[o7Dev.zwayId]) {
     var zway = ZWave[o7Dev.zwayName].zway,
         zDev = zway.devices[o7Dev.zwayId];
-    
+
     if (zway.controller.data.controllerState.value != 0) {
       self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Занят"}});
     }
-    
+
     if (zDev.data.isFailed.value) {
       // device is a failed one, we can remove it without user interaction
       try {
