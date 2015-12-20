@@ -421,6 +421,111 @@ O7.prototype.JSONifyDevices = function() {
   });
 };
 
+O7.prototype.deviceAdd = function() {
+  var self = this;
+  
+  this.debug("Adding new device");
+  
+  if (this.zway) {
+    var zway = this.zway;
+    
+    if (zway.controller.data.controllerState.value != 0) {
+      self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Занят"}});
+    }
+    
+    var started = false;
+    
+    var ctrlStateUpdater = function() {
+      if (this.value === 1 || this.value === 5) { // AddReady or RemoveReady
+        if (!started) {
+          // first is NWI
+          self.notify({"action": "deviceAddUpdate", "data": {"status": "started", "id": null}});
+          started = true;
+        } else {
+          // RemoveNodeFromNetwork and second AddNodeToNetwork require button press
+          self.notify({"action": "deviceAddUpdate", "data": {"status": "userInteractionRequired", "id": null}});
+        }
+      }
+    };
+    
+    var stop = function() {
+      zway.controller.data.controllerState.unbind(ctrlStateUpdater);
+    };
+    
+    zway.controller.data.controllerState.bind(ctrlStateUpdater);
+
+    var doRemoveAddProcess = function() {
+      try {
+        // try to exclude to then include
+        zway.RemoveNodeFromNetwork(true, true, function() {
+          setTimeout(function() { // relax time for Sigma state machine
+            // excluded, now try to include again
+            zway.AddNodeToNetwork(true, true, function() {
+              if (zway.controller.data.lastIncludedDevice.value) {
+                self.notify({"action": "deviceAddUpdate", "data": {"status": "success", "id": "ZWayVDev_" + self.zwayName + "_" + zway.controller.data.lastIncludedDevice.value.toString(10)}});
+                stop();
+              } else {
+                self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Не удалось включить"}});
+                stop();
+              }
+            }, function() {
+              self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Не удалось включить"}});
+              stop();
+            });
+          }, 500);
+        }, function() {
+          self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Не удалось исключить"}});
+          stop();
+        });
+      } catch (e) {
+        self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Не удалось запустить остановку включения NWI"}});
+        stop();
+      }
+    };
+    
+    // first try NWI for 30 seconds
+    var timerNWI = setTimeout(function() {
+      // looks like device not in NWI mode
+      // cancel inclusion
+      try {
+        zway.AddNodeToNetwork(false, false, function() {
+          setTimeout(doRemoveAddProcess, 500); // relax time for Sigma state machine
+        }, function() {
+          self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Не удалось остановить включить NWI"}});
+          stop();
+        });
+      } catch (e) {
+        self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Не удалось запустить остановку включения NWI"}});
+        stop();
+      }
+      timerNWI = null;
+    }, 30*1000);
+    
+    try {
+      zway.AddNodeToNetwork(true, true, function() {
+        timerNWI = clearTimout(timerNWI);
+        if (zway.controller.data.lastIncludedDevice.value) {
+          self.notify({"action": "deviceAddUpdate", "data": {"status": "success", "id": "ZWayVDev_" + self.zwayName + "_" + zway.controller.data.lastIncludedDevice.value.toString(10)}});
+          stop();
+        } else {
+          // process failed - device was not included. Try Remove - Add process
+          setTimeout(doRemoveAddProcess, 500); // relax time for Sigma state machine
+        }
+      }, function() {
+        timerNWI = clearTimout(timerNWI);
+        self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Не удалось включить в NWI"}});
+        stop();
+      });
+    } catch (e) {
+      timerNWI = clearTimout(timerNWI);
+      self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": dev, "message": "Что-то пошло не так"}});
+      stop();
+    }
+  } else {
+    self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Что-то пошло не так (не нашёл zway)"}});
+  }
+};
+
 O7.prototype.deviceRemove = function(dev) {
   var self = this,
       o7Dev = this.devices.get(dev);
@@ -481,7 +586,7 @@ O7.prototype.deviceRemove = function(dev) {
       }
     }
   } else {
-    self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Что-то пошло не так (не нашёл zway)"}});
+    self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Что-то пошло не так (не нашёл устройство или zway)"}});
   }
 };
 
