@@ -33,11 +33,16 @@ function O7() {
     return;
   }
 
+  if (!sockets.websocket) {
+    this.error("Websockets are not supported. Stopping.");
+    return;
+  }
+  
   this.O7_UUID = this.formatUUID(this.zway.controller.data.uuid.value);
   // this.O7_UUID = "058943ba-97b0-4b6c-3f85-e130592feaeb"; // для отладки на старый стиках/RaZberry или для жётской привязки к UUID
-  this.O7_PROTOCOL = "ws";
+  this.O7_PROTOCOL = "wss";
   this.O7_HOST     = "smart.local";
-  this.O7_PORT     = 4783;
+  this.O7_PORT     = 4443;
   this.O7_PATH     = "/?uuid=" + this.O7_UUID + "&token=auth_token&source=controller";
 
   this.O7_WS = this.O7_PROTOCOL + "://" + this.O7_HOST + (this.O7_PORT.toString().length > 0 ? ":" + this.O7_PORT : "") + this.O7_PATH;
@@ -149,7 +154,7 @@ O7.prototype.clientConnect = function() {
 
   this.client_sock.onclose = function() {
     self.debug("Closing client socket");
-    //this.close(); // TODO Wait for bug fix in WS close
+    this.close();
     self.client_sock = null;
 
     setTimeout(function() {
@@ -162,7 +167,7 @@ O7.prototype.clientConnect = function() {
 
   this.client_sock.onerror = function(ev) {
     self.error("Willing to close client socket: " + ev.data);
-    //this.close(); // TODO Wait for bug fix in WS close
+    this.close();
     self.client_sock = null;
   };
 };
