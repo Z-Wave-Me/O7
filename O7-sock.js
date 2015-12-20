@@ -424,6 +424,7 @@ O7.prototype.JSONifyDevices = function() {
 O7.prototype.deviceRemove = function(dev) {
   var self = this,
       o7Dev = this.devices.get(dev);
+  
   if (!o7Dev) {
     this.debug("Device " + dev + " not found");
     self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Устройство не найдено"}});
@@ -455,6 +456,14 @@ O7.prototype.deviceRemove = function(dev) {
         self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Что-то пошло не так"}});
       }
     } else {
+      var ctrlStateUpdater = function() {
+        if (this.value === 5) { // RemoveReady
+          self.notify({"action": "deviceRemoveUpdate", "data": {"status": "started", "id": dev}});
+          self.notify({"action": "deviceRemoveUpdate", "data": {"status": "userInteractionRequired", "id": dev}});
+        }
+        zway.controller.data.controllerState.unbind(ctrlStateUpdater);
+      };
+      
       // device is not failed, user need to press a button
       try {
         zway.RemoveNodeFromNetwork(true, true, function() {
@@ -466,8 +475,7 @@ O7.prototype.deviceRemove = function(dev) {
         }, function() {
           self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Не удалось"}});
         });
-        this.notify({"action": "deviceRemoveUpdate", "data": {"status": "started", "id": dev}});
-        this.notify({"action": "deviceRemoveUpdate", "data": {"status": "userInteractionRequired", "id": dev}});
+        zway.controller.data.controllerState.bind(ctrlStateUpdater);
       } catch (e) {
         self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Что-то пошло не так"}});
       }
