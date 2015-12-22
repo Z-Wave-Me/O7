@@ -495,6 +495,10 @@ O7.prototype.deviceAdd = function() {
     var timerNWI = setTimeout(function() {
       // looks like device not in NWI mode
       // cancel inclusion
+      timerNWI = null;
+      if (zway.controller.data.controllerState.value !== 1) {
+        return; // this means inclusion has already started, so don't stop it
+      }
       try {
         zway.AddNodeToNetwork(false, false, function() {
           setTimeout(doRemoveAddProcess, 500); // relax time for Sigma state machine
@@ -506,12 +510,11 @@ O7.prototype.deviceAdd = function() {
         self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Не удалось запустить остановку включения NWI"}});
         stop();
       }
-      timerNWI = null;
     }, 30*1000);
     
     try {
       zway.AddNodeToNetwork(true, true, function() {
-        timerNWI = clearTimout(timerNWI);
+        timerNWI = clearTimeout(timerNWI);
         if (zway.controller.data.lastIncludedDevice.value) {
           self.notify({"action": "deviceAddUpdate", "data": {"status": "success", "id": "ZWayVDev_" + self.zwayName + "_" + zway.controller.data.lastIncludedDevice.value.toString(10)}});
           stop();
