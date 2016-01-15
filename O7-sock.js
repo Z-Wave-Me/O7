@@ -36,7 +36,7 @@ function O7() {
     this.error("Websockets are not supported. Stopping.");
     return;
   }
-  
+
   this.O7_UUID = this.formatUUID(this.zway.controller.data.uuid.value);
   // this.O7_UUID = "058943ba-97b0-4b6c-3f85-e130592feaeb"; // для отладки на старый стиках/RaZberry или для жётской привязки к UUID
   this.O7_MAC = this.readMAC();
@@ -203,6 +203,13 @@ O7.prototype.parseMessage = function(sock, data) {
   this.debug("Parsing: " + data);
 
   switch (msg.action) {
+    case "getUidRequest":
+      this.sendObjToSock(sock, {
+        action: "getUidReply",
+        data: this.O7_UUID // Example GUID
+      });
+      break;
+
     case "getVersionRequest":
       this.sendObjToSock(sock, {
         action: "getVersionReply",
@@ -212,6 +219,13 @@ O7.prototype.parseMessage = function(sock, data) {
       this.sendObjToSock(sock, {
         action: "getHomeModeReply",
         data: this.getHomeMode()
+      });
+      break;
+    // Получение информации о контроллере
+    case "getControllerInfoRequest":
+      this.sendObjToSock(sock, {
+        action: "getControllerInfoReply",
+        data: {mac: this.readMAC()}
       });
       break;
     case "setHomeMode":
@@ -423,7 +437,7 @@ O7.prototype.deviceToJSON = function(dev) {
 
 O7.prototype.JSONifyDevices = function() {
   var self = this;
-  
+
   return this.devices.devices.map(function(_d) {
     return self.deviceToJSON(_d);
   });
@@ -431,18 +445,18 @@ O7.prototype.JSONifyDevices = function() {
 
 O7.prototype.deviceAdd = function() {
   var self = this;
-  
+
   this.debug("Adding new device");
-  
+
   if (this.zway) {
     var zway = this.zway;
-    
+
     if (zway.controller.data.controllerState.value != 0) {
       self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Занят"}});
     }
-    
+
     var started = false;
-    
+
     var ctrlStateUpdater = function() {
       if (this.value === 1 || this.value === 5) { // AddReady or RemoveReady
         if (!started) {
@@ -455,11 +469,11 @@ O7.prototype.deviceAdd = function() {
         }
       }
     };
-    
+
     var stop = function() {
       zway.controller.data.controllerState.unbind(ctrlStateUpdater);
     };
-    
+
     zway.controller.data.controllerState.bind(ctrlStateUpdater);
 
     var doRemoveAddProcess = function() {
@@ -490,7 +504,7 @@ O7.prototype.deviceAdd = function() {
         stop();
       }
     };
-    
+
     // first try NWI for 30 seconds
     var timerNWI = setTimeout(function() {
       // looks like device not in NWI mode
@@ -511,7 +525,7 @@ O7.prototype.deviceAdd = function() {
         stop();
       }
     }, 30*1000);
-    
+
     try {
       zway.AddNodeToNetwork(true, true, function() {
         timerNWI = clearTimeout(timerNWI);
@@ -523,12 +537,12 @@ O7.prototype.deviceAdd = function() {
           setTimeout(doRemoveAddProcess, 500); // relax time for Sigma state machine
         }
       }, function() {
-        timerNWI = clearTimout(timerNWI);
+        timerNWI = clearTimeout(timerNWI);
         self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Не удалось включить в NWI"}});
         stop();
       });
     } catch (e) {
-      timerNWI = clearTimout(timerNWI);
+      timerNWI = clearTimeout(timerNWI);
       self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": dev, "message": "Что-то пошло не так"}});
       stop();
     }
@@ -540,7 +554,7 @@ O7.prototype.deviceAdd = function() {
 O7.prototype.deviceRemove = function(dev) {
   var self = this,
       o7Dev = this.devices.get(dev);
-  
+
   if (!o7Dev) {
     this.debug("Device " + dev + " not found");
     self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Устройство не найдено"}});
@@ -579,7 +593,7 @@ O7.prototype.deviceRemove = function(dev) {
         }
         zway.controller.data.controllerState.unbind(ctrlStateUpdater);
       };
-      
+
       // device is not failed, user need to press a button
       try {
         zway.RemoveNodeFromNetwork(true, true, function() {
