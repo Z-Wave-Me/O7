@@ -36,14 +36,16 @@ function O7() {
     this.error("Websockets are not supported. Stopping.");
     return;
   }
-  
+
   this.O7_UUID = this.formatUUID(this.zway.controller.data.uuid.value);
   // this.O7_UUID = "058943ba-97b0-4b6c-3f85-e130592feaeb"; // для отладки на старый стиках/RaZberry или для жётской привязки к UUID
   this.O7_MAC = this.readMAC();
   this.O7_PROTOCOL = "wss";
   this.O7_HOST     = "smart.local";
   this.O7_PORT     = 4443;
-  this.O7_PATH     = "/?uuid=" + this.O7_UUID + "&token=auth_token&source=controller";
+  this.O7_TOKEN = 'auth_token'; //TODO: Генерация и  сохранения токена происходит на контроллере до подключения к облаку
+
+  this.O7_PATH     = "/?uuid=" + this.O7_UUID + "&token=" + this.O7_TOKEN + "&source=controller";
 
   this.O7_WS = this.O7_PROTOCOL + "://" + this.O7_HOST + (this.O7_PORT.toString().length > 0 ? ":" + this.O7_PORT : "") + this.O7_PATH;
 
@@ -138,7 +140,7 @@ O7.prototype.readMAC = function() {
   var zeroMAC = "00:00:00:00:00:00";
   try {
     var re = /^(([A-Fa-f0-9]{1,2}[:]){5}[A-Fa-f0-9]{1,2}[,]?)+$/,
-        mac = fs.loadJSON("mac.js");
+        mac = fs.loadJSON("mac.json");
     if (re.test(mac)) {
       return mac;
     } else {
@@ -206,16 +208,30 @@ O7.prototype.parseMessage = function(sock, data) {
     case "getVersionRequest":
       this.sendObjToSock(sock, {
         action: "getVersionReply",
-        data: "v1"});
+        data: "v1"
+      });
       break;
+
     case "getHomeModeRequest":
       this.sendObjToSock(sock, {
         action: "getHomeModeReply",
         data: this.getHomeMode()
       });
       break;
+    // Получение информации о контроллере
+    case "getHomeInfoRequest":
+      this.sendObjToSock(sock, {
+        action: "getHomeInfoReply",
+        data: {mac: this.readMAC(), mode: this.getHomeMode()}
+      });
+      break;
+
     case "setHomeMode":
       this.setHomeMode(msg.data);
+      this.sendObjToSock(sock, {
+        action: "setHomeModeReply",
+        data: {result: 'success'}
+      });
       break;
     case "deviceAction":
       var vDev = controller.devices.get(msg.id);
@@ -243,7 +259,44 @@ O7.prototype.parseMessage = function(sock, data) {
     case "deviceRemove":
       this.deviceRemove(msg.id);
       break;
-    case "setScenarii":
+
+    case "sceneReply":
+      // Сценарий выполнился или вообще любая информация о ходе выполнения сценария: запустился, выполнился, невыполнился,
+      // чтобы можно было следить за ходои выполненмя сценария
+      break;
+
+    case "setSceneRequest":
+      // Сохранение сценария на котнроллере и отправляем нам информацию что все сохранено хорошо
+      // ID сценария уникальный, поэтому нужно сздавать или редактировать сценарий + возвращать нам информацию что сценарий выполнился,
+      // чтобы мы могли свои действия выполнить - отправить уведомление
+      /**
+       * TODO:
+       * Пример сценария (согласно формату что присылал Сергей):
+            {
+              event:      { 'type' => 'atTime', 'hour' => 7, 'minute' => 0, 'weekdays' => [1, 2, 3, 4, 5] },
+              conditions: [{ 'type' => 'homeMode', 'mode' => 'away', 'comparison' => 'eq' }],
+              actions:    [{ 'type' => 'deviceState', 'deviceId' => 'ZWayVDev_zway_3-0-38', 'command' => 'exact', 'args' => { 'level' => 50 } }],
+              node_id:    1
+            }
+
+          в action может быть тип - "cloud" для действий которые будут выполняться облаком, например отправвка уведомлений или включение камеры и тд
+       */
+      this.sendObjToSock(sock, {
+        action: "setSceneReply",
+        data: {"id": "id", "synced": true}
+      });
+      break;
+
+    case "getScenesRequest":
+      // Получение списка загруженных сценариев
+      break;
+
+    case "startSceneRequest":
+      // Запустить сценарий
+      this.sendObjToSock(sock, {
+        action: "startSceneReply",
+        data: {result: 'ran'}
+      });
       break;
   }
 };
@@ -310,7 +363,7 @@ O7.prototype.sendObjToSock = function(sock, obj, command) {
   command = typeof(command) == 'undefined' ? 'message' : command;
 
   var data = {
-    identifier: "{\"channel\": \"ZwayChannel\", \"uuid\": \"" + this.O7_UUID + "\", \"mac\": \"" + this.O7_MAC + "\"}", // uuid подставить рельаный
+    identifier: "{\"channel\": \"ZwayChannel\", \"uuid\": \"" + this.O7_UUID + "\", \"mac\": \"" + this.O7_MAC + "\"}",
     command: command,
     data: JSON.stringify(obj) // ВАЖНО: data - это json-строка, а не объект
   }, message = JSON.stringify(data);
@@ -385,7 +438,7 @@ O7.prototype.deviceToJSON = function(dev) {
     manufacturerId: zData.manufacturerId.value,
     productTypeId: zData.manufacturerProductType.value,
     productId: zData.manufacturerProductId.value,
-    productName: zData.vendorString.value | "",
+    productName: zData.vendorString.value || "",
     elements: []
   };
 
@@ -423,7 +476,7 @@ O7.prototype.deviceToJSON = function(dev) {
 
 O7.prototype.JSONifyDevices = function() {
   var self = this;
-  
+
   return this.devices.devices.map(function(_d) {
     return self.deviceToJSON(_d);
   });
@@ -431,18 +484,18 @@ O7.prototype.JSONifyDevices = function() {
 
 O7.prototype.deviceAdd = function() {
   var self = this;
-  
+
   this.debug("Adding new device");
-  
+
   if (this.zway) {
     var zway = this.zway;
-    
+
     if (zway.controller.data.controllerState.value != 0) {
       self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Занят"}});
     }
-    
+
     var started = false;
-    
+
     var ctrlStateUpdater = function() {
       if (this.value === 1 || this.value === 5) { // AddReady or RemoveReady
         if (!started) {
@@ -455,11 +508,11 @@ O7.prototype.deviceAdd = function() {
         }
       }
     };
-    
+
     var stop = function() {
       zway.controller.data.controllerState.unbind(ctrlStateUpdater);
     };
-    
+
     zway.controller.data.controllerState.bind(ctrlStateUpdater);
 
     var doRemoveAddProcess = function() {
@@ -490,7 +543,7 @@ O7.prototype.deviceAdd = function() {
         stop();
       }
     };
-    
+
     // first try NWI for 30 seconds
     var timerNWI = setTimeout(function() {
       // looks like device not in NWI mode
@@ -523,12 +576,12 @@ O7.prototype.deviceAdd = function() {
           setTimeout(doRemoveAddProcess, 500); // relax time for Sigma state machine
         }
       }, function() {
-        timerNWI = clearTimout(timerNWI);
+        timerNWI = clearTimeout(timerNWI);
         self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Не удалось включить в NWI"}});
         stop();
       });
     } catch (e) {
-      timerNWI = clearTimout(timerNWI);
+      timerNWI = clearTimeout(timerNWI);
       self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": dev, "message": "Что-то пошло не так"}});
       stop();
     }
@@ -540,7 +593,7 @@ O7.prototype.deviceAdd = function() {
 O7.prototype.deviceRemove = function(dev) {
   var self = this,
       o7Dev = this.devices.get(dev);
-  
+
   if (!o7Dev) {
     this.debug("Device " + dev + " not found");
     self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Устройство не найдено"}});
@@ -579,7 +632,7 @@ O7.prototype.deviceRemove = function(dev) {
         }
         zway.controller.data.controllerState.unbind(ctrlStateUpdater);
       };
-      
+
       // device is not failed, user need to press a button
       try {
         zway.RemoveNodeFromNetwork(true, true, function() {
