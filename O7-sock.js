@@ -138,7 +138,7 @@ O7.prototype.readMAC = function() {
   var zeroMAC = "00:00:00:00:00:00";
   try {
     var re = /^(([A-Fa-f0-9]{1,2}[:]){5}[A-Fa-f0-9]{1,2}[,]?)+$/,
-        mac = fs.loadJSON("mac.js");
+        mac = fs.loadJSON("mac.json");
     if (re.test(mac)) {
       return mac;
     } else {
@@ -203,10 +203,23 @@ O7.prototype.parseMessage = function(sock, data) {
   this.debug("Parsing: " + data);
 
   switch (msg.action) {
+    case "getUidRequest":
+      this.sendObjToSock(sock, {
+        action: "getUidReply",
+        data: this.O7_UUID
+      });
+      break;
+    case "getControllerInfoRequest":
+      this.sendObjToSock(sock, {
+        action: "getControllerInfoReply",
+        data: {mac: this.readMAC()}
+      });
+      break;
     case "getVersionRequest":
       this.sendObjToSock(sock, {
         action: "getVersionReply",
-        data: "v1"});
+        data: "v1"
+      });
       break;
     case "getHomeModeRequest":
       this.sendObjToSock(sock, {
@@ -310,7 +323,7 @@ O7.prototype.sendObjToSock = function(sock, obj, command) {
   command = typeof(command) == 'undefined' ? 'message' : command;
 
   var data = {
-    identifier: "{\"channel\": \"ZwayChannel\", \"uuid\": \"" + this.O7_UUID + "\", \"mac\": \"" + this.O7_MAC + "\"}", // uuid подставить рельаный
+    identifier: "{\"channel\": \"ZwayChannel\", \"uuid\": \"" + this.O7_UUID + "\", \"mac\": \"" + this.O7_MAC + "\"}",
     command: command,
     data: JSON.stringify(obj) // ВАЖНО: data - это json-строка, а не объект
   }, message = JSON.stringify(data);
@@ -385,7 +398,7 @@ O7.prototype.deviceToJSON = function(dev) {
     manufacturerId: zData.manufacturerId.value,
     productTypeId: zData.manufacturerProductType.value,
     productId: zData.manufacturerProductId.value,
-    productName: zData.vendorString.value | "",
+    productName: zData.vendorString.value || "",
     elements: []
   };
 
@@ -523,12 +536,12 @@ O7.prototype.deviceAdd = function() {
           setTimeout(doRemoveAddProcess, 500); // relax time for Sigma state machine
         }
       }, function() {
-        timerNWI = clearTimout(timerNWI);
+        timerNWI = clearTimeout(timerNWI);
         self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Не удалось включить в NWI"}});
         stop();
       });
     } catch (e) {
-      timerNWI = clearTimout(timerNWI);
+      timerNWI = clearTimeout(timerNWI);
       self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": dev, "message": "Что-то пошло не так"}});
       stop();
     }
