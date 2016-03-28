@@ -269,7 +269,7 @@ O7.prototype.parseMessage = function(sock, data) {
     case "getScenarii":
       this.sendObjToSock(sock, {
         action: "getScenariiReply",
-        data: this.rules;
+        data: this.rules
       });
       break;
   }
