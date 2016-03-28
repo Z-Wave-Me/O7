@@ -264,6 +264,13 @@ O7.prototype.parseMessage = function(sock, data) {
       this.deviceRemove(msg.id);
       break;
     case "setScenarii":
+      this.rulesSet(msg);
+      break;
+    case "getScenarii":
+      this.sendObjToSock(sock, {
+        action: "getScenariiReply",
+        data: this.rules;
+      });
       break;
   }
 };
@@ -653,72 +660,13 @@ O7.prototype.deviceRemove = function(dev) {
 
 // Rules engine
 
+/*
+ * Check rules on events
+ * @param event событие формата { type: "atTime"|"deviceChange"|"homeMode", deviceId: (для deviceChange), mode: (для homeMode)}
+ */
 O7.prototype.rulesCheck = function(event) {
   var self = this;
   
-// DEBUG !!! BEGIN
-this.rules = [
-    {
-      "id": 1,
-      "name": "Сценарий 1",
-      "state": "active",
-      "event": {
-        "type": "atTime",
-        "hour": 23,
-        "minute": 0,
-        "weekdays": [ 1, 2, 3 ]
-      },
-      "conditions": [
-        {
-          "type": "homeMode",
-          "mode": "away",
-          "comparison": "eq"
-        }
-      ],
-      "actions": [
-        {
-          "type": "deviceState",
-          "deviceId": "ZWayVDev_zway_3-0-38",
-          "command": "exact",
-          "args": {
-            "level": 50
-          }
-        }
-      ]
-    },
-    {
-      "id": 2,
-      "name": "Сценарий 2",
-      "state": "active",
-      "event": {
-        "type": "deviceChange",
-        "deviceId": "ZWayVDev_zway2_7-0-113-5-2-A"
-      },
-      "conditions": [
-        {
-          "type": "deviceState",
-          "deviceId": "ZWayVDev_zway2_7-0-113-5-2-A",
-          "comparison": "eq",
-          "value": "on"
-        },
-        {
-          "type": "homeMode",
-          "mode": "away",
-          "comparison": "eq"
-        }
-      ],
-      "actions": [
-        {
-          "type": "deviceState",
-          "deviceId": "ZWayVDev_zway2_7-0-113-5-2-A", //"ZWayVDev_zway_3-0-37",
-          "command": "on"
-        }
-      ]
-    }
-];
-
-this.homeMode = "away";
-// DEBUG !!! END
 
   this.rules.forEach(function(rule) {
 console.logJS(rule); //!!!
@@ -834,6 +782,19 @@ console.logJS("res", result); //!!!
   });
 };
 
+/*
+ * Save new rules
+ * @param rules массив JSON-объектов с описанием правил
+ */
+O7.prototype.rulesSet = function(rules) {
+  // мы не делаем валидации здесь. возможно это нужно будет добавить
+  this.rules = rules;
+};
+
+O7.prototype.rulesGet = function(rules) {
+  return this.rules;
+};
+
 // Subdevice object
 
 O7SubDevice = function (prop) {
@@ -908,3 +869,67 @@ O7.prototype.setHomeMode = function(mode) {
 };
 
 var o7 = new O7();
+
+// DEBUG !!! BEGIN
+o7.rulesSet([
+    {
+      "id": 1,
+      "name": "Сценарий 1",
+      "state": "active",
+      "event": {
+        "type": "atTime",
+        "hour": 23,
+        "minute": 0,
+        "weekdays": [ 1, 2, 3 ]
+      },
+      "conditions": [
+        {
+          "type": "homeMode",
+          "mode": "away",
+          "comparison": "eq"
+        }
+      ],
+      "actions": [
+        {
+          "type": "deviceState",
+          "deviceId": "ZWayVDev_zway_3-0-38",
+          "command": "exact",
+          "args": {
+            "level": 50
+          }
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Сценарий 2",
+      "state": "active",
+      "event": {
+        "type": "deviceChange",
+        "deviceId": "ZWayVDev_zway2_7-0-113-5-2-A"
+      },
+      "conditions": [
+        {
+          "type": "deviceState",
+          "deviceId": "ZWayVDev_zway2_7-0-113-5-2-A",
+          "comparison": "eq",
+          "value": "on"
+        },
+        {
+          "type": "homeMode",
+          "mode": "away",
+          "comparison": "eq"
+        }
+      ],
+      "actions": [
+        {
+          "type": "deviceState",
+          "deviceId": "ZWayVDev_zway2_7-0-113-5-2-A", //"ZWayVDev_zway_3-0-37",
+          "command": "on"
+        }
+      ]
+    }
+]);
+
+o7.setHomeMode("away");
+// DEBUG !!! END
