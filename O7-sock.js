@@ -100,6 +100,13 @@ function O7() {
   controller.devices.forEach(function(vDev) {
     self.addDevice.call(self, vDev);
   });
+  
+  // start timer for rules
+  self.timerHandler = function() {
+    self.rulesCheck({type: "atTime"});
+    self.timer = setTimeout(timerHandler, (60 - (new Date()).getSeconds())*1000);
+  };
+  self.timerHandler();
 }
 
 // Helpers
@@ -285,6 +292,7 @@ O7.prototype.addDevice = function(vDev) {
     vDev.on("change:metrics:level", function(vdev) {
       self.debug("Device changed: " + vdev.id);
       self.notifyDeviceChange(vdev.id);
+      self.rulesCheck({type: "deviceChange", deviceId: vdev.id});
     });
   }
 };
@@ -339,15 +347,23 @@ O7.prototype.sendObjToSock = function(sock, obj, command) {
 };
 
 /**
- * Notification O7 and clients
+ * Notify O7
  * @param data
  */
-O7.prototype.notify = function(data) {
+O7.prototype.notifyO7 = function(data) {
   try {
     this.client_sock && this.sendObjToSock(this.client_sock, data);
   } catch(e) {
     this.error("Socket send error: " + e);
   }
+};
+
+/**
+ * Notification O7 and clients
+ * @param data
+ */
+O7.prototype.notify = function(data) {
+  this.notifyO7(data);
 
   for (var i in this.server_clients) {
     try {
@@ -366,6 +382,27 @@ O7.prototype.notifyDeviceChange = function(id) {
   this.notify({
     action: "deviceUpdate",
     data: this.JSONifyDevice(this.getMasterDevice(id))
+  });
+};
+
+/**
+ * Notification about home mode change
+ */
+O7.prototype.notifyHomeModeChange = function() {
+  this.notify({
+    action: "homeModeUpdate",
+    data: this.homeMode
+  });
+};
+
+/**
+ * Cloud actions
+ * @param data
+ */
+O7.prototype.cloudAction = function(action, args) {
+  this.notify({
+    action: action,
+    data: args
   });
 };
 
@@ -614,6 +651,189 @@ O7.prototype.deviceRemove = function(dev) {
   }
 };
 
+// Rules engine
+
+O7.prototype.rulesCheck = function(event) {
+  var self = this;
+  
+// DEBUG !!! BEGIN
+this.rules = [
+    {
+      "id": 1,
+      "name": "Сценарий 1",
+      "state": "active",
+      "event": {
+        "type": "atTime",
+        "hour": 23,
+        "minute": 0,
+        "weekdays": [ 1, 2, 3 ]
+      },
+      "conditions": [
+        {
+          "type": "homeMode",
+          "mode": "away",
+          "comparison": "eq"
+        }
+      ],
+      "actions": [
+        {
+          "type": "deviceState",
+          "deviceId": "ZWayVDev_zway_3-0-38",
+          "command": "exact",
+          "args": {
+            "level": 50
+          }
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Сценарий 2",
+      "state": "active",
+      "event": {
+        "type": "deviceChange",
+        "deviceId": "ZWayVDev_zway2_7-0-113-5-2-A"
+      },
+      "conditions": [
+        {
+          "type": "deviceState",
+          "deviceId": "ZWayVDev_zway2_7-0-113-5-2-A",
+          "comparison": "eq",
+          "value": "on"
+        },
+        {
+          "type": "homeMode",
+          "mode": "away",
+          "comparison": "eq"
+        }
+      ],
+      "actions": [
+        {
+          "type": "deviceState",
+          "deviceId": "ZWayVDev_zway2_7-0-113-5-2-A", //"ZWayVDev_zway_3-0-37",
+          "command": "on"
+        }
+      ]
+    }
+];
+
+this.homeMode = "away";
+// DEBUG !!! END
+
+  this.rules.forEach(function(rule) {
+console.logJS(rule); //!!!
+    if (rule.state != "active") {
+      return; // skip
+    }
+
+    // rule matches event type
+    if (event.type !== rule.event.type) {
+      return; // skip
+    }
+
+    if (event.type === "atTime") {
+      var _date = new Date();
+      
+      if (rule.event.hour !== _date.geHours() || rule.event.munite !== _date.getMinutes() && rule.event.weekdays.indexOf(_date.getDay()) === -1) {
+        return; // skip
+      }
+    }
+    
+    if (event.type === "deviceChange") {
+console.logJS(event.deviceId, rule.event.deviceId); //!!!
+      if (event.deviceId !== rule.event.deviceId) {
+        return; // skip
+      }
+    }
+    
+    if (event.type === "homeMode") {
+      if (event.mode !== rule.event.mode) {
+        return; // skip
+      }
+    }
+    
+    // for event.type === "manual" there is nothing to check
+    
+    // rule matches, check condition
+    
+    var result = true;
+    rule.conditions.forEach(function(condition) {
+console.logJS(condition.type); //!!!
+      switch (condition.type) {
+        case "deviceState":
+          var _dev = controller.devices.get(condition.deviceId);
+          if (!_dev) {
+            result = false;
+            return false;
+          }
+
+          var _val = _dev.get("metrics:level");
+
+          if (condition.comparison === "eq") {
+            result = result && (_val === condition.value);
+          }
+          if (condition.comparison === "ne") {
+            result = result && (_val !== condition.value);
+          }
+          if (condition.comparison === "ge") {
+            result = result && (_val >= condition.value);
+          }
+          if (condition.comparison === "le") {
+            result = result && (_val <= condition.value);
+          }
+console.logJS("res", result); //!!!
+          break;
+
+        case "homeMode":
+          if (condition.comparison === "eq") {
+            result &= self.homeMode === condition.mode;
+          }
+          if (condition.comparison === "ne") {
+            result &= self.homeMode !== condition.mode;
+          }
+          break;
+            
+        case "time":
+          var _date = new Date(),
+              _time = _date.geHours() * 60 + _date.geHours(),
+              _from = condition.fromHour * 60 + condition.fromMinute,
+              _to = condition.toHour * 60 + condition.toMinute;
+          
+          result &= _from <= _time && _time <= _to;
+          break;
+      }
+    });
+            
+    if (!result) {
+      return; // skip
+    }
+    
+    // condition fits
+    
+    rule.actions.forEach(function(action) {
+      switch (action.type) {
+        case "deviceState":
+          var _dev = controller.devices.get(action.deviceId);
+          
+          if (_dev) {
+            _dev.performCommand(action.command, action.args);
+          } else {
+            self.error("device not found");
+          }
+          break;
+        
+        case "homeMode":
+          self.setHomeMode(action.mode);
+          break;
+        
+        case "cloud":
+          self.cloudAction(action.action, action.ags);
+          break;
+      }
+    });
+  });
+};
+
 // Subdevice object
 
 O7SubDevice = function (prop) {
@@ -683,7 +903,8 @@ O7.prototype.getHomeMode = function() {
 
 O7.prototype.setHomeMode = function(mode) {
   this.homeMode = mode;
+  this.rulesCheck({type: "homeMode", mode: mode});
+  this.notifyHomeModeChange();
 };
 
 var o7 = new O7();
-
