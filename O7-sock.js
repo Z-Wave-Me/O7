@@ -36,7 +36,7 @@ function O7() {
     this.error("Websockets are not supported. Stopping.");
     return;
   }
-
+  
   this.O7_UUID = this.formatUUID(this.zway.controller.data.uuid.value);
   // this.O7_UUID = "058943ba-97b0-4b6c-3f85-e130592feaeb"; // для отладки на старый стиках/RaZberry или для жётской привязки к UUID
   this.O7_MAC = this.readMAC();
@@ -102,6 +102,13 @@ function O7() {
   controller.devices.forEach(function(vDev) {
     self.addDevice.call(self, vDev);
   });
+  
+  // start timer for rules
+  self.timerHandler = function() {
+    self.rulesCheck({type: "atTime"});
+    self.timer = setTimeout(timerHandler, (60 - (new Date()).getSeconds())*1000);
+  };
+  self.timerHandler();
 }
 
 // Helpers
@@ -205,6 +212,18 @@ O7.prototype.parseMessage = function(sock, data) {
   this.debug("Parsing: " + data);
 
   switch (msg.action) {
+    case "getUidRequest":
+      this.sendObjToSock(sock, {
+        action: "getUidReply",
+        data: this.O7_UUID
+      });
+      break;
+    case "getControllerInfoRequest":
+      this.sendObjToSock(sock, {
+        action: "getControllerInfoReply",
+        data: {mac: this.readMAC()}
+      });
+      break;
     case "getVersionRequest":
       this.sendObjToSock(sock, {
         action: "getVersionReply",
@@ -259,43 +278,13 @@ O7.prototype.parseMessage = function(sock, data) {
     case "deviceRemove":
       this.deviceRemove(msg.id);
       break;
-
-    case "sceneReply":
-      // Сценарий выполнился или вообще любая информация о ходе выполнения сценария: запустился, выполнился, невыполнился,
-      // чтобы можно было следить за ходои выполненмя сценария
+    case "setScenarii":
+      this.rulesSet(msg);
       break;
-
-    case "setSceneRequest":
-      // Сохранение сценария на котнроллере и отправляем нам информацию что все сохранено хорошо
-      // ID сценария уникальный, поэтому нужно сздавать или редактировать сценарий + возвращать нам информацию что сценарий выполнился,
-      // чтобы мы могли свои действия выполнить - отправить уведомление
-      /**
-       * TODO:
-       * Пример сценария (согласно формату что присылал Сергей):
-            {
-              event:      { 'type' => 'atTime', 'hour' => 7, 'minute' => 0, 'weekdays' => [1, 2, 3, 4, 5] },
-              conditions: [{ 'type' => 'homeMode', 'mode' => 'away', 'comparison' => 'eq' }],
-              actions:    [{ 'type' => 'deviceState', 'deviceId' => 'ZWayVDev_zway_3-0-38', 'command' => 'exact', 'args' => { 'level' => 50 } }],
-              node_id:    1
-            }
-
-          в action может быть тип - "cloud" для действий которые будут выполняться облаком, например отправвка уведомлений или включение камеры и тд
-       */
+    case "getScenarii":
       this.sendObjToSock(sock, {
-        action: "setSceneReply",
-        data: {"id": "id", "synced": true}
-      });
-      break;
-
-    case "getScenesRequest":
-      // Получение списка загруженных сценариев
-      break;
-
-    case "startSceneRequest":
-      // Запустить сценарий
-      this.sendObjToSock(sock, {
-        action: "startSceneReply",
-        data: {result: 'ran'}
+        action: "getScenariiReply",
+        data: this.rules
       });
       break;
   }
@@ -325,6 +314,7 @@ O7.prototype.addDevice = function(vDev) {
     vDev.on("change:metrics:level", function(vdev) {
       self.debug("Device changed: " + vdev.id);
       self.notifyDeviceChange(vdev.id);
+      self.rulesCheck({type: "deviceChange", deviceId: vdev.id});
     });
   }
 };
@@ -379,15 +369,23 @@ O7.prototype.sendObjToSock = function(sock, obj, command) {
 };
 
 /**
- * Notification O7 and clients
+ * Notify O7
  * @param data
  */
-O7.prototype.notify = function(data) {
+O7.prototype.notifyO7 = function(data) {
   try {
     this.client_sock && this.sendObjToSock(this.client_sock, data);
   } catch(e) {
     this.error("Socket send error: " + e);
   }
+};
+
+/**
+ * Notification O7 and clients
+ * @param data
+ */
+O7.prototype.notify = function(data) {
+  this.notifyO7(data);
 
   for (var i in this.server_clients) {
     try {
@@ -406,6 +404,27 @@ O7.prototype.notifyDeviceChange = function(id) {
   this.notify({
     action: "deviceUpdate",
     data: this.JSONifyDevice(this.getMasterDevice(id))
+  });
+};
+
+/**
+ * Notification about home mode change
+ */
+O7.prototype.notifyHomeModeChange = function() {
+  this.notify({
+    action: "homeModeUpdate",
+    data: this.homeMode
+  });
+};
+
+/**
+ * Cloud actions
+ * @param data
+ */
+O7.prototype.cloudAction = function(action, args) {
+  this.notify({
+    action: action,
+    data: args
   });
 };
 
@@ -476,7 +495,7 @@ O7.prototype.deviceToJSON = function(dev) {
 
 O7.prototype.JSONifyDevices = function() {
   var self = this;
-
+  
   return this.devices.devices.map(function(_d) {
     return self.deviceToJSON(_d);
   });
@@ -484,18 +503,18 @@ O7.prototype.JSONifyDevices = function() {
 
 O7.prototype.deviceAdd = function() {
   var self = this;
-
+  
   this.debug("Adding new device");
-
+  
   if (this.zway) {
     var zway = this.zway;
-
+    
     if (zway.controller.data.controllerState.value != 0) {
       self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Занят"}});
     }
-
+    
     var started = false;
-
+    
     var ctrlStateUpdater = function() {
       if (this.value === 1 || this.value === 5) { // AddReady or RemoveReady
         if (!started) {
@@ -508,11 +527,11 @@ O7.prototype.deviceAdd = function() {
         }
       }
     };
-
+    
     var stop = function() {
       zway.controller.data.controllerState.unbind(ctrlStateUpdater);
     };
-
+    
     zway.controller.data.controllerState.bind(ctrlStateUpdater);
 
     var doRemoveAddProcess = function() {
@@ -543,7 +562,7 @@ O7.prototype.deviceAdd = function() {
         stop();
       }
     };
-
+    
     // first try NWI for 30 seconds
     var timerNWI = setTimeout(function() {
       // looks like device not in NWI mode
@@ -593,7 +612,7 @@ O7.prototype.deviceAdd = function() {
 O7.prototype.deviceRemove = function(dev) {
   var self = this,
       o7Dev = this.devices.get(dev);
-
+  
   if (!o7Dev) {
     this.debug("Device " + dev + " not found");
     self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Устройство не найдено"}});
@@ -632,7 +651,7 @@ O7.prototype.deviceRemove = function(dev) {
         }
         zway.controller.data.controllerState.unbind(ctrlStateUpdater);
       };
-
+      
       // device is not failed, user need to press a button
       try {
         zway.RemoveNodeFromNetwork(true, true, function() {
@@ -652,6 +671,143 @@ O7.prototype.deviceRemove = function(dev) {
   } else {
     self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Что-то пошло не так (не нашёл устройство или zway)"}});
   }
+};
+
+// Rules engine
+
+/*
+ * Check rules on events
+ * @param event событие формата { type: "atTime"|"deviceChange"|"homeMode", deviceId: (для deviceChange), mode: (для homeMode)}
+ */
+O7.prototype.rulesCheck = function(event) {
+  var self = this;
+  
+
+  this.rules.forEach(function(rule) {
+console.logJS(rule); //!!!
+    if (rule.state != "active") {
+      return; // skip
+    }
+
+    // rule matches event type
+    if (event.type !== rule.event.type) {
+      return; // skip
+    }
+
+    if (event.type === "atTime") {
+      var _date = new Date();
+      
+      if (rule.event.hour !== _date.geHours() || rule.event.munite !== _date.getMinutes() && rule.event.weekdays.indexOf(_date.getDay()) === -1) {
+        return; // skip
+      }
+    }
+    
+    if (event.type === "deviceChange") {
+console.logJS(event.deviceId, rule.event.deviceId); //!!!
+      if (event.deviceId !== rule.event.deviceId) {
+        return; // skip
+      }
+    }
+    
+    if (event.type === "homeMode") {
+      if (event.mode !== rule.event.mode) {
+        return; // skip
+      }
+    }
+    
+    // for event.type === "manual" there is nothing to check
+    
+    // rule matches, check condition
+    
+    var result = true;
+    rule.conditions.forEach(function(condition) {
+console.logJS(condition.type); //!!!
+      switch (condition.type) {
+        case "deviceState":
+          var _dev = controller.devices.get(condition.deviceId);
+          if (!_dev) {
+            result = false;
+            return false;
+          }
+
+          var _val = _dev.get("metrics:level");
+
+          if (condition.comparison === "eq") {
+            result = result && (_val === condition.value);
+          }
+          if (condition.comparison === "ne") {
+            result = result && (_val !== condition.value);
+          }
+          if (condition.comparison === "ge") {
+            result = result && (_val >= condition.value);
+          }
+          if (condition.comparison === "le") {
+            result = result && (_val <= condition.value);
+          }
+console.logJS("res", result); //!!!
+          break;
+
+        case "homeMode":
+          if (condition.comparison === "eq") {
+            result &= self.homeMode === condition.mode;
+          }
+          if (condition.comparison === "ne") {
+            result &= self.homeMode !== condition.mode;
+          }
+          break;
+            
+        case "time":
+          var _date = new Date(),
+              _time = _date.geHours() * 60 + _date.geHours(),
+              _from = condition.fromHour * 60 + condition.fromMinute,
+              _to = condition.toHour * 60 + condition.toMinute;
+          
+          result &= _from <= _time && _time <= _to;
+          break;
+      }
+    });
+            
+    if (!result) {
+      return; // skip
+    }
+    
+    // condition fits
+    
+    rule.actions.forEach(function(action) {
+      switch (action.type) {
+        case "deviceState":
+          var _dev = controller.devices.get(action.deviceId);
+          
+          if (_dev) {
+            _dev.performCommand(action.command, action.args);
+          } else {
+            self.error("device not found");
+          }
+          break;
+        
+        case "homeMode":
+          self.setHomeMode(action.mode);
+          break;
+        
+        case "cloud":
+          self.cloudAction(action.action, action.ags);
+          break;
+      }
+    });
+  });
+};
+
+/*
+ * Save new rules
+ * @param rules массив JSON-объектов с описанием правил
+ */
+O7.prototype.rulesSet = function(rules) {
+  // мы не делаем валидации здесь. возможно это нужно будет добавить
+  this.rules = rules;
+};
+
+O7.prototype.rulesGet = function(rules) {
+  return this.rules;
 };
 
 // Subdevice object
@@ -723,7 +879,72 @@ O7.prototype.getHomeMode = function() {
 
 O7.prototype.setHomeMode = function(mode) {
   this.homeMode = mode;
+  this.rulesCheck({type: "homeMode", mode: mode});
+  this.notifyHomeModeChange();
 };
 
 var o7 = new O7();
 
+// DEBUG !!! BEGIN
+o7.rulesSet([
+    {
+      "id": 1,
+      "name": "Сценарий 1",
+      "state": "active",
+      "event": {
+        "type": "atTime",
+        "hour": 23,
+        "minute": 0,
+        "weekdays": [ 1, 2, 3 ]
+      },
+      "conditions": [
+        {
+          "type": "homeMode",
+          "mode": "away",
+          "comparison": "eq"
+        }
+      ],
+      "actions": [
+        {
+          "type": "deviceState",
+          "deviceId": "ZWayVDev_zway_3-0-38",
+          "command": "exact",
+          "args": {
+            "level": 50
+          }
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Сценарий 2",
+      "state": "active",
+      "event": {
+        "type": "deviceChange",
+        "deviceId": "ZWayVDev_zway2_7-0-113-5-2-A"
+      },
+      "conditions": [
+        {
+          "type": "deviceState",
+          "deviceId": "ZWayVDev_zway2_7-0-113-5-2-A",
+          "comparison": "eq",
+          "value": "on"
+        },
+        {
+          "type": "homeMode",
+          "mode": "away",
+          "comparison": "eq"
+        }
+      ],
+      "actions": [
+        {
+          "type": "deviceState",
+          "deviceId": "ZWayVDev_zway2_7-0-113-5-2-A", //"ZWayVDev_zway_3-0-37",
+          "command": "on"
+        }
+      ]
+    }
+]);
+
+o7.setHomeMode("away");
+// DEBUG !!! END
