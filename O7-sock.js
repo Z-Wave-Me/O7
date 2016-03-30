@@ -40,10 +40,12 @@ function O7() {
   this.O7_UUID = this.formatUUID(this.zway.controller.data.uuid.value);
   // this.O7_UUID = "058943ba-97b0-4b6c-3f85-e130592feaeb"; // для отладки на старый стиках/RaZberry или для жётской привязки к UUID
   this.O7_MAC = this.readMAC();
-  this.O7_PROTOCOL = "wss";
+  this.O7_PROTOCOL = "ws";
   this.O7_HOST     = "smart.local";
-  this.O7_PORT     = 4443;
-  this.O7_PATH     = "/?uuid=" + this.O7_UUID + "&token=auth_token&source=controller";
+  this.O7_PORT     = 4080;
+  this.O7_TOKEN = 'auth_token'; //TODO: Генерация и  сохранения токена происходит на контроллере до подключения к облаку
+
+  this.O7_PATH     = "/?uuid=" + this.O7_UUID + "&token=" + this.O7_TOKEN + "&source=controller";
 
   this.O7_WS = this.O7_PROTOCOL + "://" + this.O7_HOST + (this.O7_PORT.toString().length > 0 ? ":" + this.O7_PORT : "") + this.O7_PATH;
 
@@ -100,11 +102,11 @@ function O7() {
   controller.devices.forEach(function(vDev) {
     self.addDevice.call(self, vDev);
   });
-  
+
   // start timer for rules
   self.timerHandler = function() {
     self.rulesCheck({type: "atTime"});
-    self.timer = setTimeout(timerHandler, (60 - (new Date()).getSeconds())*1000);
+    self.timer = setTimeout(self.timerHandler, (60 - (new Date()).getSeconds())*1000);
   };
   self.timerHandler();
 }
@@ -234,6 +236,14 @@ O7.prototype.parseMessage = function(sock, data) {
         data: this.getHomeMode()
       });
       break;
+    // Получение информации о контроллере
+    case "getHomeInfoRequest":
+      this.sendObjToSock(sock, {
+        action: "getHomeInfoReply",
+        data: {mac: this.readMAC(), mode: this.getHomeMode()}
+      });
+      break;
+
     case "setHomeMode":
       this.setHomeMode(msg.data);
       break;
@@ -263,12 +273,12 @@ O7.prototype.parseMessage = function(sock, data) {
     case "deviceRemove":
       this.deviceRemove(msg.id);
       break;
-    case "setScenarii":
+    case "setScenes":
       this.rulesSet(msg);
       break;
-    case "getScenarii":
+    case "getScenes":
       this.sendObjToSock(sock, {
-        action: "getScenariiReply",
+        action: "getScenesReply",
         data: this.rules
       });
       break;
@@ -480,7 +490,7 @@ O7.prototype.deviceToJSON = function(dev) {
 
 O7.prototype.JSONifyDevices = function() {
   var self = this;
-  
+
   return this.devices.devices.map(function(_d) {
     return self.deviceToJSON(_d);
   });
@@ -488,18 +498,18 @@ O7.prototype.JSONifyDevices = function() {
 
 O7.prototype.deviceAdd = function() {
   var self = this;
-  
+
   this.debug("Adding new device");
-  
+
   if (this.zway) {
     var zway = this.zway;
-    
+
     if (zway.controller.data.controllerState.value != 0) {
       self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Занят"}});
     }
-    
+
     var started = false;
-    
+
     var ctrlStateUpdater = function() {
       if (this.value === 1 || this.value === 5) { // AddReady or RemoveReady
         if (!started) {
@@ -512,11 +522,11 @@ O7.prototype.deviceAdd = function() {
         }
       }
     };
-    
+
     var stop = function() {
       zway.controller.data.controllerState.unbind(ctrlStateUpdater);
     };
-    
+
     zway.controller.data.controllerState.bind(ctrlStateUpdater);
 
     var doRemoveAddProcess = function() {
@@ -547,7 +557,7 @@ O7.prototype.deviceAdd = function() {
         stop();
       }
     };
-    
+
     // first try NWI for 30 seconds
     var timerNWI = setTimeout(function() {
       // looks like device not in NWI mode
@@ -568,7 +578,7 @@ O7.prototype.deviceAdd = function() {
         stop();
       }
     }, 30*1000);
-    
+
     try {
       zway.AddNodeToNetwork(true, true, function() {
         timerNWI = clearTimeout(timerNWI);
@@ -597,7 +607,7 @@ O7.prototype.deviceAdd = function() {
 O7.prototype.deviceRemove = function(dev) {
   var self = this,
       o7Dev = this.devices.get(dev);
-  
+
   if (!o7Dev) {
     this.debug("Device " + dev + " not found");
     self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Устройство не найдено"}});
@@ -636,7 +646,7 @@ O7.prototype.deviceRemove = function(dev) {
         }
         zway.controller.data.controllerState.unbind(ctrlStateUpdater);
       };
-      
+
       // device is not failed, user need to press a button
       try {
         zway.RemoveNodeFromNetwork(true, true, function() {
@@ -666,10 +676,12 @@ O7.prototype.deviceRemove = function(dev) {
  */
 O7.prototype.rulesCheck = function(event) {
   var self = this;
-  
+  if(typeof(this.rules) == 'undefined') {
+    return;
+  }
 
   this.rules.forEach(function(rule) {
-console.logJS(rule); //!!!
+    console.logJS(rule); //!!!
     if (rule.state != "active") {
       return; // skip
     }
@@ -682,31 +694,31 @@ console.logJS(rule); //!!!
     if (event.type === "atTime") {
       var _date = new Date();
       
-      if (rule.event.hour !== _date.geHours() || rule.event.munite !== _date.getMinutes() && rule.event.weekdays.indexOf(_date.getDay()) === -1) {
+      if (rule.event.hour !== _date.getHours() || rule.event.munite !== _date.getMinutes() && rule.event.weekdays.indexOf(_date.getDay()) === -1) {
         return; // skip
       }
     }
-    
+
     if (event.type === "deviceChange") {
-console.logJS(event.deviceId, rule.event.deviceId); //!!!
+      console.logJS(event.deviceId, rule.event.deviceId); //!!!
       if (event.deviceId !== rule.event.deviceId) {
         return; // skip
       }
     }
-    
+
     if (event.type === "homeMode") {
       if (event.mode !== rule.event.mode) {
         return; // skip
       }
     }
-    
+
     // for event.type === "manual" there is nothing to check
-    
+
     // rule matches, check condition
-    
+
     var result = true;
     rule.conditions.forEach(function(condition) {
-console.logJS(condition.type); //!!!
+      console.logJS(condition.type); //!!!
       switch (condition.type) {
         case "deviceState":
           var _dev = controller.devices.get(condition.deviceId);
@@ -729,7 +741,7 @@ console.logJS(condition.type); //!!!
           if (condition.comparison === "le") {
             result = result && (_val <= condition.value);
           }
-console.logJS("res", result); //!!!
+          console.logJS("res", result); //!!!
           break;
 
         case "homeMode":
@@ -740,40 +752,40 @@ console.logJS("res", result); //!!!
             result &= self.homeMode !== condition.mode;
           }
           break;
-            
+
         case "time":
           var _date = new Date(),
               _time = _date.geHours() * 60 + _date.geHours(),
               _from = condition.fromHour * 60 + condition.fromMinute,
               _to = condition.toHour * 60 + condition.toMinute;
-          
+
           result &= _from <= _time && _time <= _to;
           break;
       }
     });
-            
+
     if (!result) {
       return; // skip
     }
-    
+
     // condition fits
-    
+
     rule.actions.forEach(function(action) {
       switch (action.type) {
         case "deviceState":
           var _dev = controller.devices.get(action.deviceId);
-          
+
           if (_dev) {
             _dev.performCommand(action.command, action.args);
           } else {
             self.error("device not found");
           }
           break;
-        
+
         case "homeMode":
           self.setHomeMode(action.mode);
           break;
-        
+
         case "cloud":
           self.cloudAction(action.action, action.ags);
           break;
@@ -872,64 +884,84 @@ var o7 = new O7();
 
 // DEBUG !!! BEGIN
 o7.rulesSet([
-    {
-      "id": 1,
-      "name": "Сценарий 1",
-      "state": "active",
-      "event": {
-        "type": "atTime",
-        "hour": 23,
-        "minute": 0,
-        "weekdays": [ 1, 2, 3 ]
-      },
-      "conditions": [
-        {
-          "type": "homeMode",
-          "mode": "away",
-          "comparison": "eq"
-        }
-      ],
-      "actions": [
-        {
-          "type": "deviceState",
-          "deviceId": "ZWayVDev_zway_3-0-38",
-          "command": "exact",
-          "args": {
-            "level": 50
-          }
-        }
-      ]
+  {
+    "id": 1,
+    "name": "Сценарий 1",
+    "state": "active",
+    "event": {
+      "type": "homeMode",
+      "mode": "away",
+      "comparison": "eq"
     },
-    {
-      "id": 2,
-      "name": "Сценарий 2",
-      "state": "active",
-      "event": {
-        "type": "deviceChange",
-        "deviceId": "ZWayVDev_zway2_7-0-113-5-2-A"
-      },
-      "conditions": [
-        {
-          "type": "deviceState",
-          "deviceId": "ZWayVDev_zway2_7-0-113-5-2-A",
-          "comparison": "eq",
-          "value": "on"
-        },
-        {
-          "type": "homeMode",
-          "mode": "away",
-          "comparison": "eq"
-        }
-      ],
-      "actions": [
-        {
-          "type": "deviceState",
-          "deviceId": "ZWayVDev_zway2_7-0-113-5-2-A", //"ZWayVDev_zway_3-0-37",
-          "command": "on"
-        }
-      ]
-    }
+    "conditions": [
+      // {
+      //   "type": "homeMode",
+      //   "mode": "away",
+      //   "comparison": "eq"
+      // }
+    ],
+    "actions": [
+      {
+        "type": "deviceState",
+        "deviceId": "ZWayVDev_zway_30-0-37",
+        "command": "off"
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "name": "Сценарий 2",
+    "state": "active",
+    "event": {
+      "type": "homeMode",
+      "mode": "home",
+      "comparison": "eq"
+    },
+    "conditions": [
+      // {
+      //   "type": "homeMode",
+      //   "mode": "away",
+      //   "comparison": "eq"
+      // }
+    ],
+    "actions": [
+      {
+        "type": "deviceState",
+        "deviceId": "ZWayVDev_zway_30-0-37",
+        "command": "on"
+      }
+    ]
+  }//,
+  // {
+  //   "id": 2,
+  //   "name": "Сценарий 2",
+  //   "state": "active",
+  //   "event": {
+  //     "type": "deviceChange",
+  //     "deviceId": "ZWayVDev_zway_30-0-37"
+  //   },
+  //   "conditions": [
+  //     {
+  //       "type": "deviceState",
+  //       "deviceId": "ZWayVDev_zway2_7-0-113-5-2-A",
+  //       "comparison": "eq",
+  //       "value": "on"
+  //     },
+  //     {
+  //       "type": "homeMode",
+  //       "mode": "away",
+  //       "comparison": "eq"
+  //     }
+  //   ],
+  //   "actions": [
+  //     {
+  //       "type": "deviceState",
+  //       "deviceId": "ZWayVDev_zway2_7-0-113-5-2-A", //"ZWayVDev_zway_3-0-37",
+  //       "command": "on"
+  //     }
+  //   ]
+  // }
 ]);
-
-o7.setHomeMode("away");
+//
+// o7.setHomeMode("away");
 // DEBUG !!! END
