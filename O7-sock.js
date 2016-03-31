@@ -293,6 +293,7 @@ O7.prototype.parseMessage = function(sock, data) {
         action: "commandNotFound",
         data: {"status": "failed", "id": null, "message": "Нет такой команды"}
       });
+      break;
   }
 };
 
