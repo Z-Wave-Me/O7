@@ -36,7 +36,7 @@ function O7() {
     this.error("Websockets are not supported. Stopping.");
     return;
   }
-  
+
   this.O7_UUID = this.formatUUID(this.zway.controller.data.uuid.value);
   // this.O7_UUID = "058943ba-97b0-4b6c-3f85-e130592feaeb"; // для отладки на старый стиках/RaZberry или для жётской привязки к UUID
   this.O7_MAC = this.readMAC();
@@ -236,7 +236,7 @@ O7.prototype.parseMessage = function(sock, data) {
         data: this.getHomeMode()
       });
       break;
-    // Получение информации о контроллере
+      // Получение информации о контроллере
     case "getHomeInfoRequest":
       this.sendObjToSock(sock, {
         action: "getHomeInfoReply",
@@ -693,7 +693,7 @@ O7.prototype.rulesCheck = function(event) {
 
     if (event.type === "atTime") {
       var _date = new Date();
-      
+
       if (rule.event.hour !== _date.getHours() || rule.event.munite !== _date.getMinutes() && rule.event.weekdays.indexOf(_date.getDay()) === -1) {
         return; // skip
       }
