@@ -486,13 +486,17 @@ O7.prototype.deviceToJSON = function(dev) {
       deviceType: deviceType,
       probeType: probeType || "",
       level: _vDev.get("metrics:level"),
-      /* TODO
-       [color: r: <int>, g: <int>, b: <int>]("switchColor"),
-       [max: <int>]("switchMultilevel"),
-       [min: <int>]("switchMultilevel"),
-       */
       updateTime: _vDev.get("updateTime")
     };
+
+    if (deviceType === "switchMultilevel") { 
+     _subdev.min = 0;
+     _subdev.max = 99;
+    }
+    if (probeType === "switchColor_rgb") {
+     _subdev.max = 255;
+     _subdev.color = _vDev.get("metrics:color");
+    }
 
     ret.elements.push(_subdev);
   });
