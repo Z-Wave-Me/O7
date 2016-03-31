@@ -270,8 +270,14 @@ O7.prototype.parseMessage = function(sock, data) {
     case "deviceAdd":
       this.deviceAdd();
       break;
+    case "stopDeviceAdd":
+      this.stopDeviceAdd();
+      break;
     case "deviceRemove":
       this.deviceRemove(msg.id);
+      break;
+    case "stopDeviceRemove":
+      this.stopDeviceRemove(msg.id);
       break;
     case "setScenes":
       this.rulesSet(msg);
@@ -282,6 +288,11 @@ O7.prototype.parseMessage = function(sock, data) {
         data: this.rules
       });
       break;
+    default:
+      this.sendObjToSock(sock, {
+        action: "commandNotFound",
+        data: {"status": "failed", "id": null, "message": "Нет такой команды"}
+      });
   }
 };
 
@@ -604,6 +615,23 @@ O7.prototype.deviceAdd = function() {
   }
 };
 
+O7.prototype.stopDeviceAdd  = function () {
+  var self = this;
+  this.debug("Stop device add");
+
+  if (this.zway) {
+    // Inclusion mode
+    if (zway.controller.data.controllerState.value == 1) {
+      zway.controller.AddNodeToNetwork(0);
+      self.notify({"action": "deviceAddUpdate", "data": {"status": "success", "id": null}});
+    } else {
+      self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Контроллер не в режиме включения"}});
+    }
+  } else {
+    self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": dev, "message": "Что-то пошло не так (не нашёл устройство или zway)"}});
+  }
+};
+
 O7.prototype.deviceRemove = function(dev) {
   var self = this,
       o7Dev = this.devices.get(dev);
@@ -662,6 +690,32 @@ O7.prototype.deviceRemove = function(dev) {
       } catch (e) {
         self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Что-то пошло не так"}});
       }
+    }
+  } else {
+    self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Что-то пошло не так (не нашёл устройство или zway)"}});
+  }
+};
+
+O7.prototype.stopDeviceRemove  = function (dev) {
+  var self = this,
+      o7Dev = this.devices.get(dev);
+
+  if (!o7Dev) {
+    this.debug("Device " + dev + " not found");
+    self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Устройство не найдено"}});
+  }
+
+  this.debug("Stop device remove");
+
+  if (ZWave && ZWave[o7Dev.zwayName] && ZWave[o7Dev.zwayName].zway && ZWave[o7Dev.zwayName].zway.devices[o7Dev.zwayId]) {
+    var zway = ZWave[o7Dev.zwayName].zway
+
+    // Exclusion mode
+    if (zway.controller.data.controllerState.value == 5) {
+      zway.controller.RemoveNodeFromNetwork(0);
+      self.notify({"action": "deviceRemoveUpdate", "data": {"status": "success", "id": null}});
+    } else {
+      self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": null, "message": "Контроллер не в режиме исключения"}});
     }
   } else {
     self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Что-то пошло не так (не нашёл устройство или zway)"}});
