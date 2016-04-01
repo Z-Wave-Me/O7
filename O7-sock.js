@@ -37,13 +37,14 @@ function O7() {
     return;
   }
 
-  this.O7_UUID = this.formatUUID(this.zway.controller.data.uuid.value);
+  // this.O7_UUID = this.formatUUID(this.zway.controller.data.uuid.value);
+  this.O7_UUID = "98b6d6b7-83d7-4e4e-9019-80a50b1ce9e5";
   // this.O7_UUID = "058943ba-97b0-4b6c-3f85-e130592feaeb"; // для отладки на старый стиках/RaZberry или для жётской привязки к UUID
   this.O7_MAC = this.readMAC();
   this.O7_PROTOCOL = "ws";
   this.O7_HOST     = "smart.local";
   this.O7_PORT     = 4080;
-  this.O7_TOKEN = 'auth_token'; //TODO: Генерация и  сохранения токена происходит на контроллере до подключения к облаку
+  this.O7_TOKEN = 'xzkfACdFOlj0xLdyFG50tA';
 
   this.O7_PATH     = "/?uuid=" + this.O7_UUID + "&token=" + this.O7_TOKEN + "&source=controller";
 
@@ -233,14 +234,14 @@ O7.prototype.parseMessage = function(sock, data) {
     case "getHomeModeRequest":
       this.sendObjToSock(sock, {
         action: "getHomeModeReply",
-        data: this.getHomeMode()
+        data: { homeMode: this.getHomeMode() }
       });
       break;
       // Получение информации о контроллере
     case "getHomeInfoRequest":
       this.sendObjToSock(sock, {
         action: "getHomeInfoReply",
-        data: {mac: this.readMAC(), mode: this.getHomeMode()}
+        data: {mac: this.readMAC(), homeMode: this.getHomeMode()}
       });
       break;
 
@@ -270,16 +271,56 @@ O7.prototype.parseMessage = function(sock, data) {
     case "deviceAdd":
       this.deviceAdd();
       break;
+    case "stopDeviceAdd":
+      this.stopDeviceAdd();
+      break;
     case "deviceRemove":
       this.deviceRemove(msg.id);
       break;
-    case "setScenes":
-      this.rulesSet(msg);
+    case "stopDeviceRemove":
+      this.stopDeviceRemove(msg.id);
       break;
-    case "getScenes":
+    case "setRules":
+      this.rulesSet(msg.data);
       this.sendObjToSock(sock, {
-        action: "getScenesReply",
+        action: "setRulesReply",
+        data: {synced: true}
+      });
+      break;
+    case "runRule":
+      var rule = _.find(this.rules, function (rul) {
+        return rul.id == msg.id;
+      });
+
+      //TODO: return/break if no rule
+      try {
+        if(!rule) {
+          throw 'Сценарий не найден на контроллере';
+        }
+
+        this.checkRuleItem(rule, {type: 'manual'}); // передаем ID сценария
+
+        this.sendObjToSock(sock, {
+          action: "runRuleReply",
+          data: {id: rule.id, done: true}
+        });
+      } catch (e) {
+        this.sendObjToSock(sock, {
+          action: "runRuleReply",
+          data: {id: rule.id, done: false, errors: [e.message]}
+        });
+      }
+      break;
+    case "getRules":
+      this.sendObjToSock(sock, {
+        action: "getRulesReply",
         data: this.rules
+      });
+      break;
+    default:
+      this.sendObjToSock(sock, {
+        action: "commandNotFound",
+        data: {"status": "failed", "id": null, "message": "Нет такой команды"}
       });
       break;
   }
@@ -474,13 +515,17 @@ O7.prototype.deviceToJSON = function(dev) {
       deviceType: deviceType,
       probeType: probeType || "",
       level: _vDev.get("metrics:level"),
-      /* TODO
-       [color: r: <int>, g: <int>, b: <int>]("switchColor"),
-       [max: <int>]("switchMultilevel"),
-       [min: <int>]("switchMultilevel"),
-       */
       updateTime: _vDev.get("updateTime")
     };
+
+    if (deviceType === "switchMultilevel") {
+      _subdev.min = 0;
+      _subdev.max = 99;
+    }
+    if (probeType === "switchColor_rgb") {
+      _subdev.max = 255;
+      _subdev.color = _vDev.get("metrics:color");
+    }
 
     ret.elements.push(_subdev);
   });
@@ -604,6 +649,23 @@ O7.prototype.deviceAdd = function() {
   }
 };
 
+O7.prototype.stopDeviceAdd  = function () {
+  var self = this;
+  this.debug("Stop device add");
+
+  if (this.zway) {
+    // Inclusion mode
+    if (zway.controller.data.controllerState.value == 1) {
+      zway.controller.AddNodeToNetwork(0);
+      self.notify({"action": "deviceAddUpdate", "data": {"status": "success", "id": null}});
+    } else {
+      self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Контроллер не в режиме включения"}});
+    }
+  } else {
+    self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": dev, "message": "Что-то пошло не так (не нашёл устройство или zway)"}});
+  }
+};
+
 O7.prototype.deviceRemove = function(dev) {
   var self = this,
       o7Dev = this.devices.get(dev);
@@ -668,6 +730,32 @@ O7.prototype.deviceRemove = function(dev) {
   }
 };
 
+O7.prototype.stopDeviceRemove  = function (dev) {
+  var self = this,
+      o7Dev = this.devices.get(dev);
+
+  if (!o7Dev) {
+    this.debug("Device " + dev + " not found");
+    self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Устройство не найдено"}});
+  }
+
+  this.debug("Stop device remove");
+
+  if (ZWave && ZWave[o7Dev.zwayName] && ZWave[o7Dev.zwayName].zway && ZWave[o7Dev.zwayName].zway.devices[o7Dev.zwayId]) {
+    var zway = ZWave[o7Dev.zwayName].zway
+
+    // Exclusion mode
+    if (zway.controller.data.controllerState.value == 5) {
+      zway.controller.RemoveNodeFromNetwork(0);
+      self.notify({"action": "deviceRemoveUpdate", "data": {"status": "success", "id": null}});
+    } else {
+      self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": null, "message": "Контроллер не в режиме исключения"}});
+    }
+  } else {
+    self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Что-то пошло не так (не нашёл устройство или zway)"}});
+  }
+};
+
 // Rules engine
 
 /*
@@ -676,121 +764,126 @@ O7.prototype.deviceRemove = function(dev) {
  */
 O7.prototype.rulesCheck = function(event) {
   var self = this;
+
   if(typeof(this.rules) == 'undefined') {
     return;
   }
 
   this.rules.forEach(function(rule) {
-    console.logJS(rule); //!!!
-    if (rule.state != "active") {
+    self.checkRuleItem(rule, event);
+  });
+};
+
+O7.prototype.checkRuleItem = function(rule, event) {
+  console.logJS(rule); //!!!
+  if (rule.state != "enabled") {
+    return; // skip
+  }
+
+  // rule matches event type
+  if (event.type !== rule.event.type) {
+    return; // skip
+  }
+
+  if (event.type === "atTime") {
+    var _date = new Date();
+
+    if (rule.event.hour !== _date.getHours() || rule.event.munite !== _date.getMinutes() && rule.event.weekdays.indexOf(_date.getDay()) === -1) {
       return; // skip
     }
+  }
 
-    // rule matches event type
-    if (event.type !== rule.event.type) {
+  if (event.type === "deviceChange") {
+    console.logJS(event.deviceId, rule.event.deviceId); //!!!
+    if (event.deviceId !== rule.event.deviceId) {
       return; // skip
     }
+  }
 
-    if (event.type === "atTime") {
-      var _date = new Date();
-
-      if (rule.event.hour !== _date.getHours() || rule.event.munite !== _date.getMinutes() && rule.event.weekdays.indexOf(_date.getDay()) === -1) {
-        return; // skip
-      }
-    }
-
-    if (event.type === "deviceChange") {
-      console.logJS(event.deviceId, rule.event.deviceId); //!!!
-      if (event.deviceId !== rule.event.deviceId) {
-        return; // skip
-      }
-    }
-
-    if (event.type === "homeMode") {
-      if (event.mode !== rule.event.mode) {
-        return; // skip
-      }
-    }
-
-    // for event.type === "manual" there is nothing to check
-
-    // rule matches, check condition
-
-    var result = true;
-    rule.conditions.forEach(function(condition) {
-      console.logJS(condition.type); //!!!
-      switch (condition.type) {
-        case "deviceState":
-          var _dev = controller.devices.get(condition.deviceId);
-          if (!_dev) {
-            result = false;
-            return false;
-          }
-
-          var _val = _dev.get("metrics:level");
-
-          if (condition.comparison === "eq") {
-            result = result && (_val === condition.value);
-          }
-          if (condition.comparison === "ne") {
-            result = result && (_val !== condition.value);
-          }
-          if (condition.comparison === "ge") {
-            result = result && (_val >= condition.value);
-          }
-          if (condition.comparison === "le") {
-            result = result && (_val <= condition.value);
-          }
-          console.logJS("res", result); //!!!
-          break;
-
-        case "homeMode":
-          if (condition.comparison === "eq") {
-            result &= self.homeMode === condition.mode;
-          }
-          if (condition.comparison === "ne") {
-            result &= self.homeMode !== condition.mode;
-          }
-          break;
-
-        case "time":
-          var _date = new Date(),
-              _time = _date.geHours() * 60 + _date.geHours(),
-              _from = condition.fromHour * 60 + condition.fromMinute,
-              _to = condition.toHour * 60 + condition.toMinute;
-
-          result &= _from <= _time && _time <= _to;
-          break;
-      }
-    });
-
-    if (!result) {
+  if (event.type === "homeMode") {
+    if (event.mode !== rule.event.mode) {
       return; // skip
     }
+  }
 
-    // condition fits
+  // for event.type === "manual" there is nothing to check
 
-    rule.actions.forEach(function(action) {
-      switch (action.type) {
-        case "deviceState":
-          var _dev = controller.devices.get(action.deviceId);
+  // rule matches, check condition
 
-          if (_dev) {
-            _dev.performCommand(action.command, action.args);
-          } else {
-            self.error("device not found");
-          }
-          break;
+  var result = true;
+  rule.conditions.forEach(function(condition) {
+    console.logJS(condition.type); //!!!
+    switch (condition.type) {
+      case "deviceState":
+        var _dev = controller.devices.get(condition.deviceId);
+        if (!_dev) {
+          result = false;
+          return false;
+        }
 
-        case "homeMode":
-          self.setHomeMode(action.mode);
-          break;
+        var _val = _dev.get("metrics:level");
 
-        case "cloud":
-          self.cloudAction(action.action, action.ags);
-          break;
-      }
-    });
+        if (condition.comparison === "eq") {
+          result = result && (_val === condition.value);
+        }
+        if (condition.comparison === "ne") {
+          result = result && (_val !== condition.value);
+        }
+        if (condition.comparison === "ge") {
+          result = result && (_val >= condition.value);
+        }
+        if (condition.comparison === "le") {
+          result = result && (_val <= condition.value);
+        }
+        console.logJS("res", result); //!!!
+        break;
+
+      case "homeMode":
+        if (condition.comparison === "eq") {
+          result &= self.homeMode === condition.mode;
+        }
+        if (condition.comparison === "ne") {
+          result &= self.homeMode !== condition.mode;
+        }
+        break;
+
+      case "time":
+        var _date = new Date(),
+            _time = _date.getHours() * 60 + _date.getHours(),
+            _from = condition.fromHour * 60 + condition.fromMinute,
+            _to = condition.toHour * 60 + condition.toMinute;
+
+        result &= _from <= _time && _time <= _to;
+        break;
+    }
+  });
+
+  if (!result) {
+    return; // skip
+  }
+
+  // condition fits
+
+  rule.actions.forEach(function(action) {
+    switch (action.type) {
+      case "deviceState":
+        var _dev = controller.devices.get(action.deviceId);
+
+        if (_dev) {
+          _dev.performCommand(action.command, action.args);
+        } else {
+          self.error("device not found");
+        }
+        break;
+
+      case "homeMode":
+        self.setHomeMode(action.mode);
+        break;
+
+      case "cloud":
+        self.cloudAction(action.action, action.args);
+        break;
+    }
   });
 };
 
@@ -869,9 +962,7 @@ O7Devices.prototype.add = function(prop) {
 
 // Home Mode
 O7.prototype.getHomeMode = function() {
-  return {
-    homeMode: this.homeMode
-  };
+  return this.homeMode;
 };
 
 O7.prototype.setHomeMode = function(mode) {
@@ -882,86 +973,86 @@ O7.prototype.setHomeMode = function(mode) {
 
 var o7 = new O7();
 
-// DEBUG !!! BEGIN
-o7.rulesSet([
-  {
-    "id": 1,
-    "name": "Сценарий 1",
-    "state": "active",
-    "event": {
-      "type": "homeMode",
-      "mode": "away",
-      "comparison": "eq"
-    },
-    "conditions": [
-      // {
-      //   "type": "homeMode",
-      //   "mode": "away",
-      //   "comparison": "eq"
-      // }
-    ],
-    "actions": [
-      {
-        "type": "deviceState",
-        "deviceId": "ZWayVDev_zway_30-0-37",
-        "command": "off"
-      }
-    ]
-  },
-  {
-    "id": 2,
-    "name": "Сценарий 2",
-    "state": "active",
-    "event": {
-      "type": "homeMode",
-      "mode": "home",
-      "comparison": "eq"
-    },
-    "conditions": [
-      // {
-      //   "type": "homeMode",
-      //   "mode": "away",
-      //   "comparison": "eq"
-      // }
-    ],
-    "actions": [
-      {
-        "type": "deviceState",
-        "deviceId": "ZWayVDev_zway_30-0-37",
-        "command": "on"
-      }
-    ]
-  }//,
-  // {
-  //   "id": 2,
-  //   "name": "Сценарий 2",
-  //   "state": "active",
-  //   "event": {
-  //     "type": "deviceChange",
-  //     "deviceId": "ZWayVDev_zway_30-0-37"
-  //   },
-  //   "conditions": [
-  //     {
-  //       "type": "deviceState",
-  //       "deviceId": "ZWayVDev_zway2_7-0-113-5-2-A",
-  //       "comparison": "eq",
-  //       "value": "on"
-  //     },
-  //     {
-  //       "type": "homeMode",
-  //       "mode": "away",
-  //       "comparison": "eq"
-  //     }
-  //   ],
-  //   "actions": [
-  //     {
-  //       "type": "deviceState",
-  //       "deviceId": "ZWayVDev_zway2_7-0-113-5-2-A", //"ZWayVDev_zway_3-0-37",
-  //       "command": "on"
-  //     }
-  //   ]
-  // }
-]);
+// // DEBUG !!! BEGIN
+// o7.rulesSet([
+//   {
+//     "id": 1,
+//     "name": "Сценарий 1",
+//     "state": "active",
+//     "event": {
+//       "type": "homeMode",
+//       "mode": "away",
+//       "comparison": "eq"
+//     },
+//     "conditions": [
+//       // {
+//       //   "type": "homeMode",
+//       //   "mode": "away",
+//       //   "comparison": "eq"
+//       // }
+//     ],
+//     "actions": [
+//       {
+//         "type": "deviceState",
+//         "deviceId": "ZWayVDev_zway_30-0-37",
+//         "command": "off"
+//       }
+//     ]
+//   },
+//   {
+//     "id": 2,
+//     "name": "Сценарий 2",
+//     "state": "active",
+//     "event": {
+//       "type": "homeMode",
+//       "mode": "home",
+//       "comparison": "eq"
+//     },
+//     "conditions": [
+//       // {
+//       //   "type": "homeMode",
+//       //   "mode": "away",
+//       //   "comparison": "eq"
+//       // }
+//     ],
+//     "actions": [
+//       {
+//         "type": "deviceState",
+//         "deviceId": "ZWayVDev_zway_30-0-37",
+//         "command": "on"
+//       }
+//     ]
+//   }//,
+//   // {
+//   //   "id": 2,
+//   //   "name": "Сценарий 2",
+//   //   "state": "active",
+//   //   "event": {
+//   //     "type": "deviceChange",
+//   //     "deviceId": "ZWayVDev_zway_30-0-37"
+//   //   },
+//   //   "conditions": [
+//   //     {
+//   //       "type": "deviceState",
+//   //       "deviceId": "ZWayVDev_zway2_7-0-113-5-2-A",
+//   //       "comparison": "eq",
+//   //       "value": "on"
+//   //     },
+//   //     {
+//   //       "type": "homeMode",
+//   //       "mode": "away",
+//   //       "comparison": "eq"
+//   //     }
+//   //   ],
+//   //   "actions": [
+//   //     {
+//   //       "type": "deviceState",
+//   //       "deviceId": "ZWayVDev_zway2_7-0-113-5-2-A", //"ZWayVDev_zway_3-0-37",
+//   //       "command": "on"
+//   //     }
+//   //   ]
+//   // }
+// ]);
 //
 // o7.setHomeMode("away");
 // DEBUG !!! END
