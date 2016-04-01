@@ -36,15 +36,14 @@ function O7() {
     this.error("Websockets are not supported. Stopping.");
     return;
   }
-
-  // this.O7_UUID = this.formatUUID(this.zway.controller.data.uuid.value);
-  this.O7_UUID = "98b6d6b7-83d7-4e4e-9019-80a50b1ce9e5";
+  
+  this.O7_UUID = this.formatUUID(this.zway.controller.data.uuid.value);
   // this.O7_UUID = "058943ba-97b0-4b6c-3f85-e130592feaeb"; // для отладки на старый стиках/RaZberry или для жётской привязки к UUID
   this.O7_MAC = this.readMAC();
   this.O7_PROTOCOL = "ws";
   this.O7_HOST     = "smart.local";
   this.O7_PORT     = 4080;
-  this.O7_TOKEN = 'xzkfACdFOlj0xLdyFG50tA';
+  this.O7_TOKEN = 'auth_token'; //TODO: Генерация и  сохранения токена происходит на контроллере до подключения к облаку
 
   this.O7_PATH     = "/?uuid=" + this.O7_UUID + "&token=" + this.O7_TOKEN + "&source=controller";
 
@@ -237,7 +236,7 @@ O7.prototype.parseMessage = function(sock, data) {
         data: { homeMode: this.getHomeMode() }
       });
       break;
-      // Получение информации о контроллере
+    // Получение информации о контроллере
     case "getHomeInfoRequest":
       this.sendObjToSock(sock, {
         action: "getHomeInfoReply",
