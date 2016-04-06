@@ -43,7 +43,7 @@ function O7() {
   this.O7_PROTOCOL = "ws";
   this.O7_HOST     = "smart.local";
   this.O7_PORT     = 4080;
-  this.O7_TOKEN = 'auth_token'; //TODO: Генерация и  сохранения токена происходит на контроллере до подключения к облаку
+  this.O7_TOKEN = this.getToken();
 
   this.O7_PATH     = "/?uuid=" + this.O7_UUID + "&token=" + this.O7_TOKEN + "&source=controller";
 
@@ -133,6 +133,25 @@ O7.prototype.debug = function() {
 
 O7.prototype.notImplemented = function(name) {
   console.log("Warining:", "Function \"" + name + "\" not implemented");
+};
+
+/*
+ * Return auth token
+ * @param reset - if true, re-generate new token
+ */
+O7.prototype.getToken = function(reset) {
+  var token;
+  if (!reset) {
+    try {
+      token = loadObject("O7-auth-token");
+    } catch (e) {
+    }
+  }
+  if (!token) {
+    token = crypto.guid();
+    saveObject("O7-auth-token", token);
+  }
+  return token;
 };
 
 O7.prototype.formatUUID = function(uuid) {
