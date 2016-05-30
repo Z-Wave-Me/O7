@@ -44,9 +44,7 @@ function O7() {
   this.O7_HOST     = "smart.local";
   this.O7_PORT     = 4080;
   this.O7_TOKEN = this.getToken();
-
   this.O7_PATH     = "/?uuid=" + this.O7_UUID + "&token=" + this.O7_TOKEN + "&source=controller";
-
   this.O7_WS = this.O7_PROTOCOL + "://" + this.O7_HOST + (this.O7_PORT.toString().length > 0 ? ":" + this.O7_PORT : "") + this.O7_PATH;
 
   this.RECONNECT_PERIOD = 7;
@@ -384,8 +382,12 @@ O7.prototype.getMasterDevice = function(id) {
  * There might be few Z-Way objects. We select first one as main.
  */
 O7.prototype.getMainZWay = function() {
+  var self = this;
   if (typeof zway === "object" && zway) {
     this.debug("Using default Z-Way 'zway'");
+    zway.controller.data.controllerState.bind(function(){
+      self.notify({"action": "deviceAddUpdate", "data": {"status": this.value, "id": null}})
+    });
     return {zway: zway, zwayName: "zway"};
   }
   var Z;
