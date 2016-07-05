@@ -34,7 +34,7 @@ function O7() {
 
   if (!sockets.websocket) {
     this.error("Websockets are not supported. Stopping.");
-    return;
+    //!!! return;
   }
   
   this.O7_UUID = this.formatUUID(this.zway.controller.data.uuid.value);
@@ -53,6 +53,7 @@ function O7() {
 
   // start server for local clients
   this.server_clients = [];
+  /* !!!
   this.server_sock = new sockets.websocket(this.O7_PORT);
 
   this.server_sock.onconnect = function() {
@@ -77,6 +78,7 @@ function O7() {
   this.server_sock.onmessage = function(ev) {
     self.parseMessage(this, ev.data);
   };
+  !!! */
 
   // start UDP broadcast UUID discovery service
   this.server_discovery = new sockets.udp();
@@ -150,7 +152,9 @@ O7.prototype.getToken = function(reset) {
   if (!token) {
     token = crypto.guid();
     saveObject("O7-auth-token", token);
+    this.debug("New token generated");
   }
+  this.debug("Token: " + token);
   return token;
 };
 
@@ -179,6 +183,8 @@ O7.prototype.readMAC = function() {
 
 O7.prototype.clientConnect = function() {
   var self = this;
+  
+  return; //!!!
 
   this.client_sock = new sockets.websocket(this.O7_WS);
 
@@ -502,7 +508,7 @@ O7.prototype.deviceToJSON = function(dev) {
       zData = zway && zway.devices[dev.zwayId] && zway.devices[dev.zwayId].data || null;
 
   if (zData == null) {
-    return this.error("device structure exists, but zway device does not");
+    return this.error("device structure exists, but zway device does not: " + dev.id + " (Z-Way ID " + dev.zwayName + "/" + dev.zwayId + ")");
   }
 
   var ret = {
@@ -556,6 +562,8 @@ O7.prototype.JSONifyDevices = function() {
   
   return this.devices.devices.map(function(_d) {
     return self.deviceToJSON(_d);
+  }).filter(function(x) {
+    return !!x; // remove null not fill empty items into array
   });
 };
 
@@ -659,7 +667,7 @@ O7.prototype.deviceAdd = function() {
       });
     } catch (e) {
       timerNWI = clearTimeout(timerNWI);
-      self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": dev, "message": "Что-то пошло не так"}});
+      self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Что-то пошло не так"}});
       stop();
     }
   } else {
@@ -680,7 +688,7 @@ O7.prototype.stopDeviceAdd  = function () {
       self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Контроллер не в режиме включения"}});
     }
   } else {
-    self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": dev, "message": "Что-то пошло не так (не нашёл устройство или zway)"}});
+    self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Что-то пошло не так (не нашёл устройство или zway)"}});
   }
 };
 
