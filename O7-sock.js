@@ -36,7 +36,7 @@ function O7() {
     this.error("Websockets are not supported. Stopping.");
     //!!! return;
   }
-  
+
   this.O7_UUID = this.formatUUID(this.zway.controller.data.uuid.value);
   // this.O7_UUID = "058943ba-97b0-4b6c-3f85-e130592feaeb"; // для отладки на старый стиках/RaZberry или для жётской привязки к UUID
   this.O7_MAC = this.readMAC();
@@ -85,7 +85,7 @@ function O7() {
   this.server_discovery.reusable();
   this.server_discovery.bind("255.255.255.255", 4444);
   this.server_discovery.onrecv = function(data, host, port) {
-    this.sendto('{"uuid": "' + self.O7_UUID + '", "mac": "' + self.O7_MAC + '"}', host, port);
+    this.sendto('{"uuid": "' + self.O7_UUID +  '"}', host, port);
   };
   this.server_discovery.listen();
 
@@ -104,7 +104,7 @@ function O7() {
   controller.devices.forEach(function(vDev) {
     self.addDevice.call(self, vDev);
   });
-  
+
   // start timer for rules
   self.timerHandler = function() {
     self.rulesCheck({type: "atTime"});
@@ -261,7 +261,7 @@ O7.prototype.parseMessage = function(sock, data) {
         data: { homeMode: this.getHomeMode() }
       });
       break;
-    // Получение информации о контроллере
+      // Получение информации о контроллере
     case "getHomeInfoRequest":
       this.sendObjToSock(sock, {
         action: "getHomeInfoReply",
@@ -322,15 +322,15 @@ O7.prototype.parseMessage = function(sock, data) {
           throw 'Сценарий не найден на контроллере';
         }
 
-        this.checkRuleItem(rule, {type: 'manual'}); // передаем ID сценария
+        this.ruleCheck(rule, {type: 'manual'}); // передаем ID сценария
 
         this.sendObjToSock(sock, {
-          action: "runRuleReply",
+          action: "ruleReply",
           data: {id: rule.id, done: true}
         });
       } catch (e) {
         this.sendObjToSock(sock, {
-          action: "runRuleReply",
+          action: "ruleReply",
           data: {id: rule.id, done: false, errors: [e.message]}
         });
       }
@@ -374,7 +374,6 @@ O7.prototype.addDevice = function(vDev) {
     vDev.on("change:metrics:level", function(vdev) {
       self.debug("Device changed: " + vdev.id);
       self.notifyDeviceChange(vdev.id);
-      self.rulesCheck({type: "deviceChange", deviceId: vdev.id});
     });
   }
 };
@@ -413,7 +412,7 @@ O7.prototype.sendObjToSock = function(sock, obj, command) {
   command = typeof(command) == 'undefined' ? 'message' : command;
 
   var data = {
-    identifier: "{\"channel\": \"ZwayChannel\", \"uuid\": \"" + this.O7_UUID + "\", \"mac\": \"" + this.O7_MAC + "\"}",
+    identifier: "{\"channel\": \"ZwayChannel\", \"uuid\": \"" + this.O7_UUID  + "\"}",
     command: command,
     data: JSON.stringify(obj) // ВАЖНО: data - это json-строка, а не объект
   }, message = JSON.stringify(data);
@@ -465,6 +464,8 @@ O7.prototype.notifyDeviceChange = function(id) {
     action: "deviceUpdate",
     data: this.JSONifyDevice(this.getMasterDevice(id))
   });
+
+  this.rulesCheck({type: "deviceState", deviceId: id});
 };
 
 /**
@@ -481,10 +482,10 @@ O7.prototype.notifyHomeModeChange = function() {
  * Cloud actions
  * @param data
  */
-O7.prototype.cloudAction = function(action, args) {
+O7.prototype.cloudAction = function(ruleId, action, args) {
   this.notify({
-    action: action,
-    data: args
+    action: 'cloud',
+    data: {action: action, ruleId: ruleId, args: args}
   });
 };
 
@@ -559,7 +560,7 @@ O7.prototype.deviceToJSON = function(dev) {
 
 O7.prototype.JSONifyDevices = function() {
   var self = this;
-  
+
   return this.devices.devices.map(function(_d) {
     return self.deviceToJSON(_d);
   }).filter(function(x) {
@@ -569,18 +570,18 @@ O7.prototype.JSONifyDevices = function() {
 
 O7.prototype.deviceAdd = function() {
   var self = this;
-  
+
   this.debug("Adding new device");
-  
+
   if (this.zway) {
     var zway = this.zway;
-    
+
     if (zway.controller.data.controllerState.value != 0) {
       self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Занят"}});
     }
-    
+
     var started = false;
-    
+
     var ctrlStateUpdater = function() {
       if (this.value === 1 || this.value === 5) { // AddReady or RemoveReady
         if (!started) {
@@ -593,11 +594,11 @@ O7.prototype.deviceAdd = function() {
         }
       }
     };
-    
+
     var stop = function() {
       zway.controller.data.controllerState.unbind(ctrlStateUpdater);
     };
-    
+
     zway.controller.data.controllerState.bind(ctrlStateUpdater);
 
     var doRemoveAddProcess = function() {
@@ -628,7 +629,7 @@ O7.prototype.deviceAdd = function() {
         stop();
       }
     };
-    
+
     // first try NWI for 30 seconds
     var timerNWI = setTimeout(function() {
       // looks like device not in NWI mode
@@ -649,7 +650,7 @@ O7.prototype.deviceAdd = function() {
         stop();
       }
     }, 30*1000);
-    
+
     try {
       zway.AddNodeToNetwork(true, true, function() {
         timerNWI = clearTimeout(timerNWI);
@@ -695,7 +696,7 @@ O7.prototype.stopDeviceAdd  = function () {
 O7.prototype.deviceRemove = function(dev) {
   var self = this,
       o7Dev = this.devices.get(dev);
-  
+
   if (!o7Dev) {
     this.debug("Device " + dev + " not found");
     self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Устройство не найдено"}});
@@ -734,7 +735,7 @@ O7.prototype.deviceRemove = function(dev) {
         }
         zway.controller.data.controllerState.unbind(ctrlStateUpdater);
       };
-      
+
       // device is not failed, user need to press a button
       try {
         zway.RemoveNodeFromNetwork(true, true, function() {
@@ -796,38 +797,43 @@ O7.prototype.rulesCheck = function(event) {
   }
 
   this.rules.forEach(function(rule) {
-    self.checkRuleItem(rule, event);
+    self.ruleCheck(rule, event);
   });
 };
 
-O7.prototype.checkRuleItem = function(rule, event) {
-  console.logJS(rule); //!!!
+O7.prototype.ruleCheck = function(rule, event) {
+
+  var _condition, self = this;
+
   if (rule.state != "enabled") {
     return; // skip
   }
 
   // rule matches event type
-  if (event.type !== rule.event.type) {
+  _condition = _.findWhere(rule.conditions, {type: event.type});
+  if (typeof(_condition) == 'undefined') {
     return; // skip
   }
 
   if (event.type === "atTime") {
     var _date = new Date();
 
-    if (rule.event.hour !== _date.getHours() || rule.event.munite !== _date.getMinutes() && rule.event.weekdays.indexOf(_date.getDay()) === -1) {
+    _condition = _.findWhere(rule.conditions, {type: "atTime", hour: _date.getHours(), minute: _date.getMinutes()});
+    if (typeof(_condition) == 'undefined' || _condition.weekdays.indexOf(_date.getDay()) === -1) {
       return; // skip
     }
   }
 
-  if (event.type === "deviceChange") {
-    console.logJS(event.deviceId, rule.event.deviceId); //!!!
-    if (event.deviceId !== rule.event.deviceId) {
+  if (event.type === "deviceState") {
+    _condition = _.findWhere(rule.conditions, {type: "deviceState", deviceId: event.deviceId});
+    if (typeof(_condition) == 'undefined') {
       return; // skip
     }
   }
 
   if (event.type === "homeMode") {
-    if (event.mode !== rule.event.mode) {
+    _condition = _.findWhere(rule.conditions, {type: "homeMode"});
+    if (typeof(_condition) == 'undefined') {
       return; // skip
     }
   }
@@ -838,7 +844,6 @@ O7.prototype.checkRuleItem = function(rule, event) {
 
   var result = true;
   rule.conditions.forEach(function(condition) {
-    console.logJS(condition.type); //!!!
     switch (condition.type) {
       case "deviceState":
         var _dev = controller.devices.get(condition.deviceId);
@@ -850,16 +855,16 @@ O7.prototype.checkRuleItem = function(rule, event) {
         var _val = _dev.get("metrics:level");
 
         if (condition.comparison === "eq") {
-          result = result && (_val === condition.value);
+          result = result && (_val === condition.level);
         }
         if (condition.comparison === "ne") {
-          result = result && (_val !== condition.value);
+          result = result && (_val !== condition.level);
         }
         if (condition.comparison === "ge") {
-          result = result && (_val >= condition.value);
+          result = result && (_val >= condition.level);
         }
         if (condition.comparison === "le") {
-          result = result && (_val <= condition.value);
+          result = result && (_val <= condition.level);
         }
         console.logJS("res", result); //!!!
         break;
@@ -878,7 +883,6 @@ O7.prototype.checkRuleItem = function(rule, event) {
             _time = _date.getHours() * 60 + _date.getHours(),
             _from = condition.fromHour * 60 + condition.fromMinute,
             _to = condition.toHour * 60 + condition.toMinute;
-
         result &= _from <= _time && _time <= _to;
         break;
     }
@@ -889,6 +893,7 @@ O7.prototype.checkRuleItem = function(rule, event) {
   }
 
   // condition fits
+  var actionsCnt = 0; // Хотим быть уверены что все действия выполнены
 
   rule.actions.forEach(function(action) {
     switch (action.type) {
@@ -897,6 +902,7 @@ O7.prototype.checkRuleItem = function(rule, event) {
 
         if (_dev) {
           _dev.performCommand(action.command, action.args);
+          actionsCnt += 1;
         } else {
           self.error("device not found");
         }
@@ -904,13 +910,29 @@ O7.prototype.checkRuleItem = function(rule, event) {
 
       case "homeMode":
         self.setHomeMode(action.mode);
+        actionsCnt += 1;
         break;
 
       case "cloud":
-        self.cloudAction(action.action, action.args);
+        self.cloudAction(rule.id, action.action, action.args);
+
+        actionsCnt += 1;
         break;
     }
   });
+
+
+  if(actionsCnt == rule.actions.length) {
+    self.notifyO7({
+      action: "ruleReply",
+      data: {id: rule.id, done: true}
+    });
+  } else {
+    self.notifyO7({
+      action: "ruleReply",
+      data: {id: rule.id, done: false, errors: ['Не все действия были выполнены']}
+    });
+  }
 };
 
 /*
@@ -998,3 +1020,4 @@ O7.prototype.setHomeMode = function(mode) {
 };
 
 var o7 = new O7();
+
