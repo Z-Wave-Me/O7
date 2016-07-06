@@ -34,7 +34,6 @@ function O7() {
 
   if (!sockets.websocket) {
     this.error("Websockets are not supported. Stopping.");
-    //!!! return;
   }
 
   this.O7_UUID = this.formatUUID(this.zway.controller.data.uuid.value);
@@ -53,7 +52,6 @@ function O7() {
 
   // start server for local clients
   this.server_clients = [];
-  /* !!!
   this.server_sock = new sockets.websocket(this.O7_PORT);
 
   this.server_sock.onconnect = function() {
@@ -78,7 +76,6 @@ function O7() {
   this.server_sock.onmessage = function(ev) {
     self.parseMessage(this, ev.data);
   };
-  !!! */
 
   // start UDP broadcast UUID discovery service
   this.server_discovery = new sockets.udp();
@@ -184,8 +181,6 @@ O7.prototype.readMAC = function() {
 O7.prototype.clientConnect = function() {
   var self = this;
   
-  return; //!!!
-
   this.client_sock = new sockets.websocket(this.O7_WS);
 
   this.client_sock.onconnect = function() {
@@ -866,7 +861,6 @@ O7.prototype.ruleCheck = function(rule, event) {
         if (condition.comparison === "le") {
           result = result && (_val <= condition.level);
         }
-        console.logJS("res", result); //!!!
         break;
 
       case "homeMode":
