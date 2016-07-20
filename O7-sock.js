@@ -572,7 +572,7 @@ O7.prototype.deviceAdd = function() {
     var zway = this.zway;
 
     if (zway.controller.data.controllerState.value != 0) {
-      self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Занят"}});
+      self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Контроллер занят", "error": "ADD_DEVICE_CONTROLLER_BUSY"}});
     }
 
     var started = false;
@@ -602,25 +602,30 @@ O7.prototype.deviceAdd = function() {
         zway.RemoveNodeFromNetwork(true, true, function() {
           setTimeout(function() { // relax time for Sigma state machine
             // excluded, now try to include again
-            zway.AddNodeToNetwork(true, true, function() {
-              if (zway.controller.data.lastIncludedDevice.value) {
-                self.notify({"action": "deviceAddUpdate", "data": {"status": "success", "id": "ZWayVDev_" + self.zwayName + "_" + zway.controller.data.lastIncludedDevice.value.toString(10)}});
+            try {
+              zway.AddNodeToNetwork(true, true, function() {
+                if (zway.controller.data.lastIncludedDevice.value) {
+                  self.notify({"action": "deviceAddUpdate", "data": {"status": "success", "id": "ZWayVDev_" + self.zwayName + "_" + zway.controller.data.lastIncludedDevice.value.toString(10)}});
+                  stop();
+                } else {
+                  self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Не удалось включить", "error": "ADD_DEVICE_INCLUSION_FAILURE"}});
+                  stop();
+                }
+              }, function() {
+                self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Не удалось включить устройство", "error": "ADD_DEVICE_INCLUSION_FAILURE"}});
                 stop();
-              } else {
-                self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Не удалось включить"}});
-                stop();
-              }
-            }, function() {
-              self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Не удалось включить"}});
+              });
+            } catch (e) {
+              self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Не удалось начать процесс включения", "error": "ADD_DEVICE_UNEXPECTED_FAILURE"}});
               stop();
-            });
+            }
           }, 500);
         }, function() {
-          self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Не удалось исключить"}});
+          self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Не удалось сбросить устройство перед включением", "error": "ADD_DEVICE_EXCLUSION_FAILURE"}});
           stop();
         });
       } catch (e) {
-        self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Не удалось запустить остановку включения NWI"}});
+        self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Не удалось начать сброс устройства перед включением", "error": "ADD_DEVICE_UNEXPECTED_FAILURE"}});
         stop();
       }
     };
@@ -637,11 +642,11 @@ O7.prototype.deviceAdd = function() {
         zway.AddNodeToNetwork(false, false, function() {
           setTimeout(doRemoveAddProcess, 500); // relax time for Sigma state machine
         }, function() {
-          self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Не удалось остановить включить NWI"}});
+          self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Не удалось остановить включение NWI", "error": "ADD_DEVICE_UNEXPECTED_FAILURE"}});
           stop();
         });
       } catch (e) {
-        self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Не удалось запустить остановку включения NWI"}});
+        self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Не удалось запустить остановку включения NWI", "error": "ADD_DEVICE_UNEXPECTED_FAILURE"}});
         stop();
       }
     }, 30*1000);
@@ -658,16 +663,16 @@ O7.prototype.deviceAdd = function() {
         }
       }, function() {
         timerNWI = clearTimeout(timerNWI);
-        self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Не удалось включить в NWI"}});
+        self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Не удалось включить в NWI", "error": "ADD_DEVICE_UNEXPECTED_FAILURE"}});
         stop();
       });
     } catch (e) {
       timerNWI = clearTimeout(timerNWI);
-      self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Что-то пошло не так"}});
+      self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Что-то пошло не так", "error": "ADD_DEVICE_UNEXPECTED_FAILURE"}});
       stop();
     }
   } else {
-    self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Что-то пошло не так (не нашёл zway)"}});
+    self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Что-то пошло не так (не нашёл zway)", "error": "ADD_DEVICE_UNEXPECTED_FAILURE"}});
   }
 };
 
@@ -681,10 +686,10 @@ O7.prototype.stopDeviceAdd  = function () {
       zway.controller.AddNodeToNetwork(0);
       self.notify({"action": "deviceAddUpdate", "data": {"status": "success", "id": null}});
     } else {
-      self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Контроллер не в режиме включения"}});
+      self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Контроллер не в режиме включения (ничего не делаю)", "error": "ADD_DEVICE_STOP_COMMAND_IGNORED"}});
     }
   } else {
-    self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Что-то пошло не так (не нашёл устройство или zway)"}});
+    self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Что-то пошло не так (не нашёл устройство или zway)", "error": "ADD_DEVICE_STOP_UNEXPECTED_FAILURE"}});
   }
 };
 
@@ -694,7 +699,7 @@ O7.prototype.deviceRemove = function(dev) {
 
   if (!o7Dev) {
     this.debug("Device " + dev + " not found");
-    self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Устройство не найдено"}});
+    self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Устройство не найдено", "error": "REMOVE_DEVICE_NOT_FOUND"}});
   }
 
   this.debug("Removing " + dev);
@@ -703,7 +708,7 @@ O7.prototype.deviceRemove = function(dev) {
         zDev = zway.devices[o7Dev.zwayId];
 
     if (zway.controller.data.controllerState.value != 0) {
-      self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Занят"}});
+      self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Контроллер занят", "error": "REMOVE_DEVICE_CONTROLLER_BUSY"}});
     }
 
     if (zDev.data.isFailed.value) {
@@ -713,14 +718,14 @@ O7.prototype.deviceRemove = function(dev) {
           if (zway.controller.data.lastExcludedDevice.value == o7Dev.zwayId) { // non-strict == to allow compare strings with numbers
             self.notify({"action": "deviceRemoveUpdate", "data": {"status": "success", "id": dev}});
           } else {
-            self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Не удалось"}});
+            self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Что-то пошло не так (внутренняя ошибка исключения)", "error": "REMOVE_DEVICE_UNEXPECTED_ERROR"}});
           }
         }, function() {
-          self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Не удалось"}});
+          self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Не удалось исключить недоступное устройство", "error": "REMOVE_DEVICE_UNEXPECTED_FAILURE"}});
         });
         this.notify({"action": "deviceRemoveUpdate", "data": {"status": "started", "id": dev}});
       } catch (e) {
-        self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Что-то пошло не так"}});
+        self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Не удалось начать процесс исключения недоступного устройства", "error": "REMOVE_DEVICE_UNEXPECTED_FAILURE"}});
       }
     } else {
       var ctrlStateUpdater = function() {
@@ -736,19 +741,21 @@ O7.prototype.deviceRemove = function(dev) {
         zway.RemoveNodeFromNetwork(true, true, function() {
           if (zway.controller.data.lastExcludedDevice.value == o7Dev.zwayId) { // non-strict == to allow compare strings with numbers
             self.notify({"action": "deviceRemoveUpdate", "data": {"status": "success", "id": dev}});
+          } else if (zway.controller.data.lastExcludedDevice.value != 0) {
+            self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Исключено другое устройство", "error": "REMOVE_DEVICE_WRONG_NODE_EXCLUDED"}});
           } else {
-            self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Не удалось"}});
+            self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Сброшено к заводским настройкам устройство не из сети", "error": "REMOVE_DEVICE_FOREIGN_NODE_EXCLUDED"}});
           }
         }, function() {
-          self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Не удалось"}});
+          self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Не удалось исключить устройство", "error": "REMOVE_DEVICE_UNEXPECTED_FAILURE"}});
         });
         zway.controller.data.controllerState.bind(ctrlStateUpdater);
       } catch (e) {
-        self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Что-то пошло не так"}});
+        self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Не удалось начать процесс исключения устройства", "error": "REMOVE_DEVICE_UNEXPECTED_FAILURE"}});
       }
     }
   } else {
-    self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Что-то пошло не так (не нашёл устройство или zway)"}});
+    self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Что-то пошло не так (не нашёл устройство или zway)", "error": "REMOVE_DEVICE_UNEXPECTED_FAILURE"}});
   }
 };
 
@@ -758,7 +765,7 @@ O7.prototype.stopDeviceRemove  = function (dev) {
 
   if (!o7Dev) {
     this.debug("Device " + dev + " not found");
-    self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Устройство не найдено"}});
+    self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Устройство не найдено", "error": "REMOVE_DEVICE_DEVICE_NOT_FOUND"}});
   }
 
   this.debug("Stop device remove");
@@ -771,10 +778,10 @@ O7.prototype.stopDeviceRemove  = function (dev) {
       zway.controller.RemoveNodeFromNetwork(0);
       self.notify({"action": "deviceRemoveUpdate", "data": {"status": "success", "id": null}});
     } else {
-      self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": null, "message": "Контроллер не в режиме исключения"}});
+      self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": null, "message": "Контроллер не в режиме исключения (ничего не делаю)", "error": "REMOVE_DEVICE_STOP_COMMAND_IGNORED"}});
     }
   } else {
-    self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Что-то пошло не так (не нашёл устройство или zway)"}});
+    self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Что-то пошло не так (не нашёл устройство или zway)", "error": "REMOVE_DEVICE_STOP_UNEXPECTED_FAILURE"}});
   }
 };
 
