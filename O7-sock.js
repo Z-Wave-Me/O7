@@ -53,6 +53,7 @@ function O7() {
 
   this.debug("UID: " + this.O7_UUID);
   this.debug("Token: " + this.O7_TOKEN);
+  this.debug("MAC: " + this.O7_MAC);
   
   // start server for local clients
   this.server_clients = [];
@@ -260,12 +261,6 @@ O7.prototype.parseMessage = function(sock, data) {
         data: this.O7_UUID
       });
       break;
-    case "getControllerInfoRequest":
-      this.sendObjToSock(sock, {
-        action: "getControllerInfoReply",
-        data: {mac: this.readMAC()}
-      });
-      break;
     case "getVersionRequest":
       this.sendObjToSock(sock, {
         action: "getVersionReply",
@@ -282,7 +277,7 @@ O7.prototype.parseMessage = function(sock, data) {
     case "getHomeInfoRequest":
       this.sendObjToSock(sock, {
         action: "getHomeInfoReply",
-        data: {mac: this.readMAC(), homeMode: this.getHomeMode()}
+        data: {mac: this.O7_MAC, homeMode: this.getHomeMode()}
       });
       break;
 
