@@ -34,10 +34,10 @@ function O7() {
 
   if (!sockets.websocket) {
     this.error("Websockets are not supported. Stopping.");
+    return;
   }
 
   this.O7_UUID = this.formatUUID(this.zway.controller.data.uuid.value);
-  // this.O7_UUID = "058943ba-97b0-4b6c-3f85-e130592feaeb"; // для отладки на старый стиках/RaZberry или для жётской привязки к UUID
   this.O7_MAC = this.readMAC();
   this.O7_PROTOCOL = "ws";
   this.O7_HOST     = "smart.local";
@@ -50,6 +50,9 @@ function O7() {
 
   this.RECONNECT_PERIOD = 7;
 
+  this.debug("UID: " + this.O7_UUID);
+  this.debug("Token: " + this.O7_TOKEN);
+  
   // start server for local clients
   this.server_clients = [];
   this.server_sock = new sockets.websocket(this.O7_PORT);
@@ -114,24 +117,21 @@ function O7() {
 
 O7.prototype.error = function() {
   var args = Array.prototype.slice.call(arguments);
-  args.unshift("[O7] Error");
-  console.log(args);
+  console.log("[O7] [Error]", args);
 };
 
 O7.prototype.warning = function() {
   var args = Array.prototype.slice.call(arguments);
-  args.unshift("[O7] Warning");
-  console.log(args);
+  console.log("[O7] [Warning]", args);
 };
 
 O7.prototype.debug = function() {
   var args = Array.prototype.slice.call(arguments);
-  args.unshift("[O7] Debug");
-  console.log(args);
+  console.log("[O7] [Debug]", args);
 };
 
 O7.prototype.notImplemented = function(name) {
-  console.log("Warining:", "Function \"" + name + "\" not implemented");
+  this.warning("Function \"" + name + "\" not implemented");
 };
 
 /*
@@ -151,7 +151,6 @@ O7.prototype.getToken = function(reset) {
     saveObject("O7-auth-token", token);
     this.debug("New token generated");
   }
-  this.debug("Token: " + token);
   return token;
 };
 
@@ -184,6 +183,7 @@ O7.prototype.clientConnect = function() {
   this.client_sock = new sockets.websocket(this.O7_WS);
 
   this.client_sock.onconnect = function() {
+    self.debug("Connected to server");
     // После установки соединения с ws-сервером, он начинает каждые 3 сек слать
     // heartbeat-сообщения {"identifier":"_ping","message":текущий_timestamp}
 
