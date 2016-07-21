@@ -195,10 +195,10 @@ O7.prototype.clientConnect = function() {
     self.parseMessage(this, ev.data);
   };
 
-
-  this.client_sock.onclose = function() {
+  this.client_sock._onclose = function() {
     self.debug("Closing client socket");
-    this.close();
+    this.onclose = null; // to prevent recursive call
+    this.close(); // just in case (for explicit calls of this function)
     self.client_sock = null;
 
     setTimeout(function() {
