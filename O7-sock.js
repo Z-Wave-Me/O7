@@ -187,7 +187,7 @@ O7.prototype.clientConnect = function() {
   this.client_sock.onconnect = function() {
     self.debug("Connected to server");
     // После установки соединения с ws-сервером, он начинает каждые 3 сек слать
-    // heartbeat-сообщения {"identifier":"_ping","message":текущий_timestamp}
+    // heartbeat-сообщения {"type":"ping","message":текущий_timestamp}
 
     // Subscription for channel
     self.sendObjToSock(this, {}, "subscribe");
@@ -234,7 +234,7 @@ O7.prototype.ping = function() {
     this.ping_timer = null;
     if (!self.client_sock) return; // socket does not exist anymore
     self.error("No ping for a long time... reconnecting");
-    self.client_sock._close();
+    self.client_sock._onclose();
   }, self.PING_TIMEOUT * 1000);
 };
 
@@ -248,8 +248,8 @@ O7.prototype.parseMessage = function(sock, data) {
       obj  = JSON.parse(data),
       msg  = obj.message;
 
-  if (obj.identifier == "_ping") this.ping();
-  
+  if (obj.type === "ping") this.ping();
+
   if (typeof msg !== "object") return;
 
   this.debug("Parsing: " + data);
