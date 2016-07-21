@@ -49,6 +49,7 @@ function O7() {
   this.O7_WS = this.O7_PROTOCOL + "://" + this.O7_HOST + (this.O7_PORT.toString().length > 0 ? ":" + this.O7_PORT : "") + this.O7_PATH;
 
   this.RECONNECT_PERIOD = 7;
+  this.PING_TIMEOUT = 7;
 
   this.debug("UID: " + this.O7_UUID);
   this.debug("Token: " + this.O7_TOKEN);
@@ -189,6 +190,8 @@ O7.prototype.clientConnect = function() {
 
     // Subscription for channel
     self.sendObjToSock(this, {}, "subscribe");
+    
+    self.ping(); // стартуем таймер переподключения
   };
 
   this.client_sock.onmessage = function(ev) {
@@ -208,14 +211,31 @@ O7.prototype.clientConnect = function() {
       }
     }, self.RECONNECT_PERIOD * 1000);
   };
+  this.client_sock.onclose = this.client_sock._onclose;
 
   this.client_sock.onerror = function(ev) {
     self.error("Willing to close client socket: " + ev.data);
-    this.close();
-    self.client_sock = null;
+    this._onclose(); // internally it will close the socket and restart everything again
   };
 };
 
+// Временный хак ддя переподключения
+// Как только перестаём получать пинги, переподключаемся
+O7.prototype.ping = function() {
+  var self = this;
+  
+  if (this.ping_timer) {
+    clearTimeout(this.ping_timer);
+    this.ping_timer = null;
+  }
+  
+  this.ping_timer = setTimeout(function() {
+    this.ping_timer = null;
+    if (!self.client_sock) return; // socket does not exist anymore
+    self.error("No ping for a long time... reconnecting");
+    self.client_sock._close();
+  }, self.PING_TIMEOUT * 1000);
+};
 
 /**
  *
@@ -227,6 +247,8 @@ O7.prototype.parseMessage = function(sock, data) {
       obj  = JSON.parse(data),
       msg  = obj.message;
 
+  if (obj.identifier == "_ping") this.ping();
+  
   if (typeof msg !== "object") return;
 
   this.debug("Parsing: " + data);
