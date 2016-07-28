@@ -594,6 +594,11 @@ O7.prototype.deviceAdd = function() {
 
     var started = false;
 
+    var stop = function() {
+      zway.controller.data.controllerState.unbind(ctrlStateUpdater);
+    };
+    this.deviceAddHelperUnbind = stop; // this is a dirty hack to make it visible to deviceAddStop
+
     var ctrlStateUpdater = function() {
       if (this.value === 1 || this.value === 5) { // AddReady or RemoveReady
         if (!started) {
@@ -605,10 +610,6 @@ O7.prototype.deviceAdd = function() {
           self.notify({"action": "deviceAddUpdate", "data": {"status": "userInteractionRequired", "id": null}});
         }
       }
-    };
-
-    var stop = function() {
-      zway.controller.data.controllerState.unbind(ctrlStateUpdater);
     };
 
     zway.controller.data.controllerState.bind(ctrlStateUpdater);
@@ -699,13 +700,21 @@ O7.prototype.stopDeviceAdd  = function () {
 
   if (this.zway) {
     // Inclusion mode
-    if (zway.controller.data.controllerState.value == 1) {
+    if (zway.controller.data.controllerState.value === 1) {
       zway.controller.AddNodeToNetwork(0);
+      self.deviceAddHelperUnbind && self.deviceAddHelperUnbind();
       self.notify({"action": "deviceAddUpdate", "data": {"status": "success", "id": null}});
+    } else if (zway.controller.data.controllerState.value === 5) {
+      zway.controller.RemoveNodeFromNetwork(0);
+      self.deviceAddHelperUnbind && self.deviceAddHelperUnbind();
+      self.notify({"action": "deviceAddUpdate", "data": {"status": "success", "id": null}});
+    } else if (zway.controller.data.controllerState.value !== 0) {
+      self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Контроллер занят, скоро закончит текущую операци включения/исключения и пришлёт результат добавления устройства в сеть (ничего не делаю)", "error": "ADD_DEVICE_STOP_COMMAND_IGNORED"}});
     } else {
       self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Контроллер не в режиме включения (ничего не делаю)", "error": "ADD_DEVICE_STOP_COMMAND_IGNORED"}});
     }
   } else {
+    self.deviceAddHelperUnbind && self.deviceAddHelperUnbind();
     self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Что-то пошло не так (не нашёл устройство или zway)", "error": "ADD_DEVICE_STOP_UNEXPECTED_FAILURE"}});
   }
 };
@@ -791,7 +800,7 @@ O7.prototype.stopDeviceRemove  = function (dev) {
     var zway = ZWave[o7Dev.zwayName].zway
 
     // Exclusion mode
-    if (zway.controller.data.controllerState.value == 5) {
+    if (zway.controller.data.controllerState.value === 5) {
       zway.controller.RemoveNodeFromNetwork(0);
       self.notify({"action": "deviceRemoveUpdate", "data": {"status": "success", "id": null}});
     } else {
