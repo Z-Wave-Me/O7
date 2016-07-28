@@ -590,6 +590,7 @@ O7.prototype.deviceAdd = function() {
 
     if (zway.controller.data.controllerState.value != 0) {
       self.notify({"action": "deviceAddUpdate", "data": {"status": "failed", "id": null, "message": "Контроллер занят", "error": "ADD_DEVICE_CONTROLLER_BUSY"}});
+      return;
     }
 
     var started = false;
@@ -726,6 +727,7 @@ O7.prototype.deviceRemove = function(dev) {
   if (!o7Dev) {
     this.debug("Device " + dev + " not found");
     self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Устройство не найдено", "error": "REMOVE_DEVICE_NOT_FOUND"}});
+    return;
   }
 
   this.debug("Removing " + dev);
@@ -735,6 +737,7 @@ O7.prototype.deviceRemove = function(dev) {
 
     if (zway.controller.data.controllerState.value != 0) {
       self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Контроллер занят", "error": "REMOVE_DEVICE_CONTROLLER_BUSY"}});
+      return;
     }
 
     if (zDev.data.isFailed.value) {
