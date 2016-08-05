@@ -33,6 +33,9 @@ function O7() {
   }
   this.zway = zwayObj.zway;
   this.zwayName = zwayObj.zwayName;
+  this.swVersion = this.zway.controller.data.softwareRevisionVersion.value;
+  this.hwVersion = this.zway.controller.data.APIVersion.value;
+
 
   if (!sockets.websocket) {
     this.error("Websockets are not supported. Stopping.");
@@ -279,7 +282,12 @@ O7.prototype.parseMessage = function(sock, data) {
     case "getHomeInfoRequest":
       this.sendObjToSock(sock, {
         action: "getHomeInfoReply",
-        data: {mac: this.O7_MAC, homeMode: this.getHomeMode()}
+        data: {
+          mac: this.O7_MAC,
+          homeMode: this.getHomeMode(),
+          swVersion: this.swVersion,
+          hwVersion: this.hwVersion
+        }
       });
       break;
 
@@ -533,6 +541,7 @@ O7.prototype.deviceToJSON = function(dev) {
     productTypeId: zData.manufacturerProductType.value,
     productId: zData.manufacturerProductId.value,
     productName: zData.vendorString.value || "",
+    appVersion: zData.applicationMajor.value.toString() + "." + ("00" + zData.applicationMinor.value.toString()).slice(-2),
     elements: []
   };
 
