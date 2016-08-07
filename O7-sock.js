@@ -852,18 +852,30 @@ O7.prototype.deviceRemove = function(dev, dead) {
 
 O7.prototype.stopDeviceRemove  = function (dev) {
   var self = this,
-      o7Dev = this.devices.get(dev);
+      o7Dev;
 
-  if (!o7Dev) {
-    this.debug("Device " + dev + " not found");
-    self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Устройство не найдено", "error": "REMOVE_DEVICE_DEVICE_NOT_FOUND"}});
+  if (dev) {
+    o7Dev = this.devices.get(dev);
+    if (!o7Dev) {
+      this.debug("Device " + dev + " not found");
+      self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Устройство не найдено", "error": "REMOVE_DEVICE_DEVICE_NOT_FOUND"}});
+      return;
+    }
   }
 
   this.debug("Stop device remove");
 
-  if (ZWave && ZWave[o7Dev.zwayName] && ZWave[o7Dev.zwayName].zway && ZWave[o7Dev.zwayName].zway.devices[o7Dev.zwayId]) {
-    var zway = ZWave[o7Dev.zwayName].zway
+  var zway;
+  if (o7Dev && ZWave && ZWave[o7Dev.zwayName] && ZWave[o7Dev.zwayName].zway && ZWave[o7Dev.zwayName].zway.devices[o7Dev.zwayId]) {
+    zway = ZWave[o7Dev.zwayName].zway;
+  } else {
+    zwayObj = this.getMainZWay();
+    if (zwayObj) {
+      zway = zwayObj.zway;
+    }
+  }
 
+  if (zway) {
     // Exclusion mode
     if (zway.controller.data.controllerState.value === 5) {
       zway.controller.RemoveNodeFromNetwork(0);
