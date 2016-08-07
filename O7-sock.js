@@ -326,7 +326,7 @@ O7.prototype.parseMessage = function(sock, data) {
       this.stopDeviceAdd();
       break;
     case "deviceRemove":
-      this.deviceRemove(msg.id);
+      this.deviceRemove(msg.id, msg.dead);
       break;
     case "stopDeviceRemove":
       this.stopDeviceRemove(msg.id);
@@ -765,7 +765,7 @@ O7.prototype.stopDeviceAdd  = function () {
   }
 };
 
-O7.prototype.deviceRemove = function(dev) {
+O7.prototype.deviceRemove = function(dev, dead) {
   var self = this,
       o7Dev = this.devices.get(dev);
 
@@ -784,51 +784,68 @@ O7.prototype.deviceRemove = function(dev) {
       self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Контроллер занят", "error": "REMOVE_DEVICE_CONTROLLER_BUSY"}});
       return;
     }
-
-    if (zDev.data.isFailed.value) {
-      // device is a failed one, we can remove it without user interaction
-      try {
-        zway.RemoveFailedNode(o7Dev.zwayId, function() {
-          if (zway.controller.data.lastExcludedDevice.value == o7Dev.zwayId) { // non-strict == to allow compare strings with numbers
-            self.notify({"action": "deviceRemoveUpdate", "data": {"status": "success", "id": dev}});
-          } else {
-            self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Что-то пошло не так (внутренняя ошибка исключения)", "error": "REMOVE_DEVICE_UNEXPECTED_ERROR"}});
-          }
-        }, function() {
-          self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Не удалось исключить недоступное устройство", "error": "REMOVE_DEVICE_UNEXPECTED_FAILURE"}});
-        });
-        this.notify({"action": "deviceRemoveUpdate", "data": {"status": "started", "id": dev}});
-      } catch (e) {
-        self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Не удалось начать процесс исключения недоступного устройства", "error": "REMOVE_DEVICE_UNEXPECTED_FAILURE"}});
-      }
-    } else {
-      var ctrlStateUpdater = function() {
-        if (this.value === 5) { // RemoveReady
+    
+   function beginDeviceRemove() {
+      if (zDev.data.isFailed.value) {
+        // device is a failed one, we can remove it without user interaction
+        try {
+          zway.RemoveFailedNode(o7Dev.zwayId, function() {
+            if (zway.controller.data.lastExcludedDevice.value == o7Dev.zwayId) { // non-strict == to allow compare strings with numbers
+              self.notify({"action": "deviceRemoveUpdate", "data": {"status": "success", "id": dev}});
+            } else {
+              self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Что-то пошло не так (внутренняя ошибка исключения)", "error": "REMOVE_DEVICE_UNEXPECTED_ERROR"}});
+            }
+          }, function() {
+            self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Не удалось исключить недоступное устройство", "error": "REMOVE_DEVICE_UNEXPECTED_FAILURE"}});
+          });
           self.notify({"action": "deviceRemoveUpdate", "data": {"status": "started", "id": dev}});
-          self.notify({"action": "deviceRemoveUpdate", "data": {"status": "userInteractionRequired", "id": dev}});
+        } catch (e) {
+          self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Не удалось начать процесс исключения недоступного устройства", "error": "REMOVE_DEVICE_UNEXPECTED_FAILURE"}});
         }
-        zway.controller.data.controllerState.unbind(ctrlStateUpdater);
-      };
-
-      // device is not failed, user need to press a button
-      try {
-        zway.RemoveNodeFromNetwork(true, true, function() {
-          if (zway.controller.data.lastExcludedDevice.value == o7Dev.zwayId) { // non-strict == to allow compare strings with numbers
-            self.notify({"action": "deviceRemoveUpdate", "data": {"status": "success", "id": dev}});
-          } else if (zway.controller.data.lastExcludedDevice.value != 0) {
-            self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Исключено другое устройство", "error": "REMOVE_DEVICE_WRONG_NODE_EXCLUDED"}});
-          } else {
-            self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Сброшено к заводским настройкам устройство не из сети", "error": "REMOVE_DEVICE_FOREIGN_NODE_EXCLUDED"}});
+      } else {
+        var ctrlStateUpdater = function() {
+          if (this.value === 5) { // RemoveReady
+            self.notify({"action": "deviceRemoveUpdate", "data": {"status": "started", "id": dev}});
+            self.notify({"action": "deviceRemoveUpdate", "data": {"status": "userInteractionRequired", "id": dev}});
           }
-        }, function() {
-          self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Не удалось исключить устройство", "error": "REMOVE_DEVICE_UNEXPECTED_FAILURE"}});
-        });
-        zway.controller.data.controllerState.bind(ctrlStateUpdater);
-      } catch (e) {
-        self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Не удалось начать процесс исключения устройства", "error": "REMOVE_DEVICE_UNEXPECTED_FAILURE"}});
+          zway.controller.data.controllerState.unbind(ctrlStateUpdater);
+        };
+
+        // device is not failed, user need to press a button
+        try {
+          zway.RemoveNodeFromNetwork(true, true, function() {
+            if (zway.controller.data.lastExcludedDevice.value == o7Dev.zwayId) { // non-strict == to allow compare strings with numbers
+              self.notify({"action": "deviceRemoveUpdate", "data": {"status": "success", "id": dev}});
+            } else if (zway.controller.data.lastExcludedDevice.value != 0) {
+              self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Исключено другое устройство", "error": "REMOVE_DEVICE_WRONG_NODE_EXCLUDED"}});
+            } else {
+              self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Сброшено к заводским настройкам устройство не из сети", "error": "REMOVE_DEVICE_FOREIGN_NODE_EXCLUDED"}});
+            }
+          }, function() {
+            self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Не удалось исключить устройство", "error": "REMOVE_DEVICE_UNEXPECTED_FAILURE"}});
+          });
+          zway.controller.data.controllerState.bind(ctrlStateUpdater);
+        } catch (e) {
+          self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Не удалось начать процесс исключения устройства", "error": "REMOVE_DEVICE_UNEXPECTED_FAILURE"}});
+        }
       }
     }
-  } else {
+    if (dead && !zDev.data.isFailed.value) {
+      // try 
+      zway.devices[o7Dev.zwayId].SendNoOperation(function () {
+        if (zway.devices[o7Dev.zwayId].isFailed) {
+          beginDeviceRemove();
+        } else {
+          self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Устройство не сломано, удалите его путём нажатия на кнопку.", "error": "REMOVE_DEVICE_DEAD_REACHABLE"}});
+        }
+      }, function() {
+        self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Что-то пошло не так (не смог проверить доступность устройства)", "error": "REMOVE_DEVICE_UNEXPECTED_FAILURE"}});
+      });
+    } else {
+      beginDeviceRemove();
+    }
+
+   } else {
     self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Что-то пошло не так (не нашёл устройство или zway)", "error": "REMOVE_DEVICE_UNEXPECTED_FAILURE"}});
   }
 };
