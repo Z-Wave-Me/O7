@@ -33,7 +33,7 @@ function O7() {
   }
   this.zway = zwayObj.zway;
   this.zwayName = zwayObj.zwayName;
-  
+
   this.swVersion = this.zway.controller.data.softwareRevisionVersion.value;
   this.swCommit = this.zway.controller.data.softwareRevisionId.value;
   this.swDate = this.zway.controller.data.softwareRevisionDate.value;
@@ -62,7 +62,7 @@ function O7() {
   this.debug("UID: " + this.O7_UUID);
   this.debug("Token: " + this.O7_TOKEN);
   this.debug("MAC: " + this.O7_MAC);
-  
+
   // start server for local clients
   this.server_clients = [];
   this.server_sock = new sockets.websocket(this.O7_PORT);
@@ -200,7 +200,7 @@ O7.prototype.readMAC = function() {
 
 O7.prototype.clientConnect = function() {
   var self = this;
-  
+
   this.client_sock = new sockets.websocket(this.O7_WS);
 
   this.client_sock.onconnect = function() {
@@ -210,7 +210,7 @@ O7.prototype.clientConnect = function() {
 
     // Subscription for channel
     self.sendObjToSock(this, {}, "subscribe");
-    
+
     self.ping(); // стартуем таймер переподключения
   };
 
@@ -243,12 +243,12 @@ O7.prototype.clientConnect = function() {
 // Как только перестаём получать пинги, переподключаемся
 O7.prototype.ping = function() {
   var self = this;
-  
+
   if (this.ping_timer) {
     clearTimeout(this.ping_timer);
     this.ping_timer = null;
   }
-  
+
   this.ping_timer = setTimeout(function() {
     this.ping_timer = null;
     if (!self.client_sock) return; // socket does not exist anymore
@@ -568,7 +568,7 @@ O7.prototype.deviceToJSON = function(dev) {
       }
     }
   }
-  
+
   var security = "";
   if (zData.secureChannelEstablished && zData.secureChannelEstablished.value && zDev.instances[0].Security && zDev.instances[0].Security.data) {
     switch (zDev.instances[0].Security.data.version.value) {
@@ -582,7 +582,7 @@ O7.prototype.deviceToJSON = function(dev) {
         security = "unknown";
     }
   }
-  
+
   var ret = {
     id: dev.id,
     source: "z-wave",
@@ -803,7 +803,7 @@ O7.prototype.deviceRemove = function(dev, dead) {
       self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Контроллер занят", "error": "REMOVE_DEVICE_CONTROLLER_BUSY"}});
       return;
     }
-    
+
    function beginDeviceRemove() {
       if (zDev.data.isFailed.value) {
         // device is a failed one, we can remove it without user interaction
@@ -850,7 +850,7 @@ O7.prototype.deviceRemove = function(dev, dead) {
       }
     }
     if (dead && !zDev.data.isFailed.value) {
-      // try 
+      // try
       zway.devices[o7Dev.zwayId].SendNoOperation(function () {
         if (zway.devices[o7Dev.zwayId].isFailed) {
           beginDeviceRemove();
@@ -994,11 +994,9 @@ O7.prototype.ruleCheck = function(rule, event) {
 
       case "homeMode":
         if (condition.comparison === "eq") {
-          result &= self.homeMode === condition.mode;
+          result &= self.homeMode == condition.mode;
         }
-        if (condition.comparison === "ne") {
-          result &= self.homeMode !== condition.mode;
-        }
+
         break;
 
       case "time":
@@ -1015,45 +1013,40 @@ O7.prototype.ruleCheck = function(rule, event) {
     return; // skip
   }
 
-  // condition fits
-  var actionsCnt = 0; // Хотим быть уверены что все действия выполнены
+  try {
+    rule.actions.forEach(function (action) {
+      switch (action.type) {
+        case "deviceState":
+          var _dev = controller.devices.get(action.deviceId);
 
-  rule.actions.forEach(function(action) {
-    switch (action.type) {
-      case "deviceState":
-        var _dev = controller.devices.get(action.deviceId);
+          if (_dev) {
+            _dev.performCommand(action.command, action.args);
+            actionsCnt += 1;
+          } else {
+            self.error("device not found");
+          }
+          break;
 
-        if (_dev) {
-          _dev.performCommand(action.command, action.args);
-          actionsCnt += 1;
-        } else {
-          self.error("device not found");
-        }
-        break;
+        case "homeMode":
+          self.setHomeMode(action.mode);
+          break;
 
-      case "homeMode":
-        self.setHomeMode(action.mode);
-        actionsCnt += 1;
-        break;
+        case "cloud":
+          self.cloudAction(rule.id, action.action, action.args);
 
-      case "cloud":
-        self.cloudAction(rule.id, action.action, action.args);
+          break;
+      }
+    });
 
-        actionsCnt += 1;
-        break;
-    }
-  });
-
-
-  if(actionsCnt == rule.actions.length) {
     self.notifyO7({
       action: "ruleReply",
       data: {id: rule.id, done: true}
     });
-  } else {
+
+  } catch(e) {
     self.notifyO7({
       action: "ruleReply",
-      data: {id: rule.id, done: false, errors: ['Не все действия были выполнены']}
+      data: {id: rule.id, done: false, errors: ['Ошибка сценария']}
     });
   }
 };
