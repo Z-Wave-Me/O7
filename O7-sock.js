@@ -115,6 +115,17 @@ function O7() {
     self.addDevice.call(self, vDev);
   });
 
+  // catch newly created z-way devices (to enumerate empty structures)
+  ZWAY_DEVICE_CHANGE_TYPES = {
+    "DeviceAdded": 0x01,
+    "EnumerateExisting": 0x200
+  };
+  this.zwayBinding = this.zway.bind(function(type, nodeId) {
+    if (type === ZWAY_DEVICE_CHANGE_TYPES["DeviceAdded"] && nodeId != self.zway.controller.data.nodeId.value) {
+      self.addDeviceEmptyParent.call(self, self.zwayName, nodeId);
+    }
+  }, ZWAY_DEVICE_CHANGE_TYPES["DeviceAdded"] | ZWAY_DEVICE_CHANGE_TYPES["EnumerateExisting"]);
+
   // start timer for rules
   self.timerHandler = function() {
     self.rulesCheck({type: "atTime"});
@@ -403,6 +414,14 @@ O7.prototype.addDevice = function(vDev) {
       self.notifyDeviceChange(vdev.id);
     });
   }
+};
+
+O7.prototype.addDeviceEmptyParent = function(zwayName, zwayId) {
+  var _dev = this.devices.add({
+    id: "ZWayVDev_" + zwayName + "_" + zwayId,
+    zwayName: zwayName,
+    zwayId: zwayId
+  });
 };
 
 O7.prototype.getMasterDevice = function(id) {
