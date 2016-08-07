@@ -33,7 +33,10 @@ function O7() {
   }
   this.zway = zwayObj.zway;
   this.zwayName = zwayObj.zwayName;
+  
   this.swVersion = this.zway.controller.data.softwareRevisionVersion.value;
+  this.swCommit = this.zway.controller.data.softwareRevisionId.value;
+  this.swDate = this.zway.controller.data.softwareRevisionDate.value;
   this.hwVersion = this.zway.controller.data.APIVersion.value;
 
 
@@ -286,6 +289,8 @@ O7.prototype.parseMessage = function(sock, data) {
           mac: this.O7_MAC,
           homeMode: this.getHomeMode(),
           swVersion: this.swVersion,
+          swCommit: this.swCommit,
+          swDate: this.swDate,
           hwVersion: this.hwVersion
         }
       });
@@ -528,12 +533,37 @@ O7.prototype.deviceToJSON = function(dev) {
   }
 
   var zway = ZWave[dev.zwayName] && ZWave[dev.zwayName].zway,
-      zData = zway && zway.devices[dev.zwayId] && zway.devices[dev.zwayId].data || null;
+      zDev = zway && zway.devices[dev.zwayId] || null,
+      zData = zDev && zDev.data || null;
 
   if (zData == null) {
     return this.error("device structure exists, but zway device does not: " + dev.id + " (Z-Way ID " + dev.zwayName + "/" + dev.zwayId + ")");
   }
 
+  var ccTotal = 0, ccDone = 0;
+  for (var instanceId in zDev.instances) {
+    for (var ccId in zDev.instances[instanceId].commandClasses) {
+      ccTotal++;
+      if (zDev.instances[instanceId].commandClasses[ccId].data.interviewDone.value) {
+        ccDone++;
+      }
+    }
+  }
+  
+  var security = "";
+  if (zData.secureChannelEstablished && zData.secureChannelEstablished.value && zDev.instances[0].Security && zDev.instances[0].Security.data) {
+    switch (zDev.instances[0].Security.data.version.value) {
+      case 1:
+        security = "Security S0";
+        break;
+      case 2:
+        security = "Security S2";
+        break;
+      default:
+        security = "unknown";
+    }
+  }
+  
   var ret = {
     id: dev.id,
     source: "z-wave",
@@ -542,6 +572,9 @@ O7.prototype.deviceToJSON = function(dev) {
     productId: zData.manufacturerProductId.value,
     productName: zData.vendorString.value || "",
     appVersion: zData.applicationMajor.value.toString() + "." + ("00" + zData.applicationMinor.value.toString()).slice(-2),
+    security: security,
+    protocol: (zDev.instances[0].ZWavePlus) ? "Z-Wave" : "Z-Wave Plus",
+    interview: ccTotal ? Math.floor(ccDone/ccTotal*100) : 0,
     elements: []
   };
 
