@@ -201,7 +201,18 @@ O7.prototype.readMAC = function() {
 O7.prototype.clientConnect = function() {
   var self = this;
 
-  this.client_sock = new sockets.websocket(this.O7_WS);
+  try {
+    self.debug("Creating socket");
+    this.client_sock = new sockets.websocket(this.O7_WS);
+    self.debug("Created socket");
+  } catch(e) {
+    self.debug("Socket creation exception");
+    setTimeout(function() {
+      self.debug("Reconnecting...");
+      self.clientConnect();
+    }, self.RECONNECT_PERIOD * 1000);
+    return;
+  }
 
   this.client_sock.onconnect = function() {
     self.debug("Connected to server");
