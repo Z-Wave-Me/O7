@@ -353,6 +353,10 @@ O7.prototype.parseMessage = function(sock, data) {
     case "stopDeviceRemove":
       this.stopDeviceRemove(msg.id);
       break;
+    case "stopDeviceAddRemove":
+      this.stopDeviceAdd();
+      this.stopDeviceRemove();
+      break;
     case "setRules":
       this.rulesSet(msg.data);
       this.sendObjToSock(sock, {
@@ -447,8 +451,8 @@ O7.prototype.getMasterDevice = function(id) {
  */
 O7.prototype.getMainZWay = function() {
   if (typeof zway === "object" && zway) {
-    this.debug("Using default Z-Way 'zway'");
-    return {zway: zway, zwayName: "zway"};
+    this.debug("Using default Z-Way '" + zway.name + "'");
+    return {zway: zway, zwayName: zway.name};
   }
   var Z;
   if (typeof ZWave === "object" && (Z = Object.keys(ZWave)) && Z.length && ZWave[Z[0]])
@@ -651,7 +655,7 @@ O7.prototype.JSONifyDevices = function() {
   return this.devices.devices.map(function(_d) {
     return self.deviceToJSON(_d);
   }).filter(function(x) {
-    return !!x; // remove null not fill empty items into array
+    return !!x; // remove null not to fill empty items into array
   });
 };
 
@@ -1068,6 +1072,18 @@ O7.prototype.ruleCheck = function(rule, event) {
  */
 O7.prototype.rulesSet = function(rules) {
   // мы не делаем валидации здесь. возможно это нужно будет добавить
+  
+  // поправим некоторые типы данных
+  for (var i in rules) {
+    for (var j in rules[i].conditions) {
+      if (rules[i].conditions[j].type === "atTime") {
+        rules[i].conditions[j].hour = parseInt(rules[i].conditions[j].hour, 10);
+        rules[i].conditions[j].minute = parseInt(rules[i].conditions[j].minute, 10);
+        rules[i].conditions[j].weekdays = rules[i].conditions[j].weekdays.map(function(element) { return parseInt(element, 10); });
+      }
+    }
+  }
+
   this.rules = rules;
 };
 
