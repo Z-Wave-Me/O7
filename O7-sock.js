@@ -1014,7 +1014,7 @@ O7.prototype.ruleCheck = function(rule, event) {
 
         break;
 
-      case "time":
+      case "atTime":
         var _date = new Date(),
             _time = _date.getHours() * 60 + _date.getHours(),
             _from = condition.fromHour * 60 + condition.fromMinute,
@@ -1036,7 +1036,6 @@ O7.prototype.ruleCheck = function(rule, event) {
 
           if (_dev) {
             _dev.performCommand(action.command, action.args);
-            actionsCnt += 1;
           } else {
             self.error("device not found");
           }
