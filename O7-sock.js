@@ -394,6 +394,14 @@ O7.prototype.parseMessage = function(sock, data) {
         data: this.rules
       });
       break;
+    case "executeShellCommand":
+      var result = system(". /lib/O7Runner.sh && " + msg.script);
+      this.sendObjToSock(sock, {
+        action: "executeShellCommandReply",
+        code: result[0] ? "Error" : "OK",
+        data: result[1]
+      });
+      break;
     default:
       this.sendObjToSock(sock, {
         action: "commandNotFound",
