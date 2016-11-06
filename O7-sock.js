@@ -47,6 +47,7 @@ function O7() {
 
   this.O7_UUID = this.formatUUID(this.zway.controller.data.uuid.value);
   this.O7_MAC = this.readMAC();
+  this.O7_OS_VER = this.readOSVersion();
   this.O7_PROTOCOL = "ws";
   this.O7_HOST     = "smart.local";
   this.O7_PORT     = 4080;
@@ -62,6 +63,7 @@ function O7() {
   this.debug("UID: " + this.O7_UUID);
   this.debug("Token: " + this.O7_TOKEN);
   this.debug("MAC: " + this.O7_MAC);
+  this.debug("OS Ver: " + this.O7_OS_VER);
 
   // start server for local clients
   this.server_clients = [];
@@ -198,6 +200,14 @@ O7.prototype.readMAC = function() {
   }
 };
 
+O7.prototype.readOSVersion = function() {
+  try {
+    return fs.loadJSON("box-version-history.json");
+  } catch (e) {
+    return "0";
+  }
+};
+
 O7.prototype.clientConnect = function() {
   var self = this;
 
@@ -313,6 +323,7 @@ O7.prototype.parseMessage = function(sock, data) {
           swVersion: this.swVersion,
           swCommit: this.swCommit,
           swDate: this.swDate,
+          osVersion: this.O7_OS_VER,
           hwVersion: this.hwVersion
         }
       });
