@@ -52,6 +52,9 @@ function O7() {
   this.O7_HOST     = "smart.local";
   this.O7_PORT     = 4080;
   this.O7_TOKEN = this.getToken();
+  this.O7_SSL_CA = null;
+  this.O7_SSL_CERT = null;
+  this.O7_SSL_KEY = null;
 
   this.O7_PATH     = "/?uuid=" + this.O7_UUID + "&token=" + this.O7_TOKEN + "&source=controller";
 
@@ -213,7 +216,7 @@ O7.prototype.clientConnect = function() {
 
   try {
     self.debug("Creating socket");
-    this.client_sock = new sockets.websocket(this.O7_WS);
+    this.client_sock = new sockets.websocket(this.O7_WS, null, this.O7_SSL_CA, this.O7_SSL_CERT, this.O7_SSL_KEY);
     self.debug("Created socket");
   } catch(e) {
     self.debug("Socket creation exception");
@@ -405,7 +408,7 @@ O7.prototype.parseMessage = function(sock, data) {
         data: this.rules
       });
       break;
-    case "executeShellCommand":
+    case "executeShell":
       var result = system(". /lib/O7Runner.sh && " + msg.script);
       this.sendObjToSock(sock, {
         action: "executeShellCommandReply",
