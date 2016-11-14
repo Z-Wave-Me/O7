@@ -409,17 +409,17 @@ O7.prototype.parseMessage = function(sock, data) {
       });
       break;
     case "executeShell":
-      var result = system(". /lib/O7Runner.sh && " + msg.script);
+      var result = system(". /lib/O7Runner.sh && " + Base64.decode(msg.data));
       this.sendObjToSock(sock, {
         action: "executeShellReply",
         code: result[0] ? "Error" : "OK",
-        data: result[1]
+        data: Base64.encode(result[1])
       });
       break;
     case "executeJS":
       var _code, _data;
       try {
-        var r = eval(msg.script);
+        var r = eval(Base64.decode(msg.data));
         if (typeof r === "function") {
           _data = "(function)";
         } else {
@@ -433,7 +433,7 @@ O7.prototype.parseMessage = function(sock, data) {
       this.sendObjToSock(sock, {
         action: "executeJSReply",
         code: _code,
-        data: _data
+        data: Base64.encode(_data)
       });
       break;
     default:
