@@ -411,9 +411,29 @@ O7.prototype.parseMessage = function(sock, data) {
     case "executeShell":
       var result = system(". /lib/O7Runner.sh && " + msg.script);
       this.sendObjToSock(sock, {
-        action: "executeShellCommandReply",
+        action: "executeShellReply",
         code: result[0] ? "Error" : "OK",
         data: result[1]
+      });
+      break;
+    case "executeJS":
+      var _code, _data;
+      try {
+        var r = eval(msg.script);
+        if (typeof r === "function") {
+          _data = "(function)";
+        } else {
+          _data = JSON.stringify(r);
+        }
+	_code = "OK";
+      } catch (e) {
+        _code = "Error";
+        _data = JSON.stringify(e);
+      }
+      this.sendObjToSock(sock, {
+        action: "executeJSReply",
+        code: _code,
+        data: _data
       });
       break;
     default:
@@ -575,7 +595,6 @@ O7.prototype.cloudAction = function(ruleId, action, args) {
 O7.prototype.JSONifyDevice = function(id) {
   var dev = this.devices.get(id);
 
-  this.debug(JSON.stringify(dev));
   if (dev) {
     return this.deviceToJSON(dev);
   }
