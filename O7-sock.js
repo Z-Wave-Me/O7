@@ -63,6 +63,8 @@ function O7() {
   this.RECONNECT_PERIOD = 7;
   this.PING_TIMEOUT = 7;
 
+  this.O7_BUFFERED_EVENTS_LENGTH = 100;
+  
   this.debug("UID: " + this.O7_UUID);
   this.debug("Token: " + this.O7_TOKEN);
   this.debug("MAC: " + this.O7_MAC);
@@ -348,6 +350,8 @@ O7.prototype.parseMessage = function(sock, data) {
         action: "getDevicesReply",
         data: this.JSONifyDevices()
       });
+      // O7 is ready for events, send buffered events
+      this.sendBufferedEvents();
       break;
     case "getDeviceRequest":
       this.sendObjToSock(sock, {
@@ -531,14 +535,62 @@ O7.prototype.sendObjToSock = function(sock, obj, command) {
 };
 
 /**
+ * Get buffered events to send to O7
+ */
+O7.prototype.getBufferedEvents = function() {
+  var bufferedEvents = [];
+  
+  try {
+    bufferedEvents = loadObject("O7-bufferend-events");
+    if (!Array.isArray(bufferedEvents)) {
+      bufferedEvents = [];
+    }
+  } catch (e) { }
+
+  return bufferedEvents;
+}
+
+/**
+ * Save event locally if O7 is unreachable
+ * @param data
+ */
+O7.prototype.saveBufferedEvent = function(data) {
+  var bufferedEvents = this.getBufferedEvents();
+  
+  bufferedEvents.push(data);
+  bufferedEvents = bufferedEvents.slice(-this.O7_BUFFERED_EVENTS_LENGTH);
+  saveObject("O7-bufferend-events", bufferedEvents);
+}
+
+/**
+ * Send buffered events to O7
+ */
+O7.prototype.sendBufferedEvents = function() {
+  var self = this,
+      bufferedEvents = this.getBufferedEvents();
+
+  // clear buffered list
+  saveObject("O7-bufferend-events", []);
+  
+  bufferedEvents.forEach(function(event) {
+    self.notifyO7(event);
+  });
+}
+
+/**
  * Notify O7
  * @param data
  */
 O7.prototype.notifyO7 = function(data) {
   try {
-    this.client_sock && this.sendObjToSock(this.client_sock, data);
+    if (this.client_sock) {
+      this.sendObjToSock(this.client_sock, data);
+    } else {
+      this.saveBufferedEvent(data);
+    }
   } catch(e) {
     this.error("Socket send error: " + e);
+    this.saveBufferedEvent(data);
   }
 };
 
