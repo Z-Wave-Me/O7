@@ -132,7 +132,18 @@ function O7() {
       self.addDeviceEmptyParent.call(self, self.zwayName, nodeId);
     }
   }, ZWAY_DEVICE_CHANGE_TYPES["DeviceAdded"] | ZWAY_DEVICE_CHANGE_TYPES["EnumerateExisting"]);
-
+  
+  // restore rules from local storage
+  this.rules = [];
+  try {
+    this.rules = loadObject("O7-rules");
+    if (!Array.isArray(this.rules)) {
+      this.rules = [];
+    }
+  } catch (e) {
+    this.warining("Unable to load rules, using empty list");
+  }
+  
   // start timer for rules
   self.timerHandler = function() {
     self.rulesCheck({type: "atTime"});
@@ -1177,6 +1188,7 @@ O7.prototype.rulesSet = function(rules) {
   }
 
   this.rules = rules;
+  saveObject("O7-rules", rules);
 };
 
 O7.prototype.rulesGet = function(rules) {
