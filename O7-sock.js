@@ -69,6 +69,7 @@ function O7() {
   this.debug("Token: " + this.O7_TOKEN);
   this.debug("MAC: " + this.O7_MAC);
   this.debug("OS Ver: " + this.O7_OS_VER);
+  this.debug("Server: " + this.O7_PROTOCOL + "://" + this.O7_HOST + (this.O7_PORT.toString().length > 0 ? ":" + this.O7_PORT : ""));
 
   // start server for local clients
   this.server_clients = [];
@@ -230,6 +231,7 @@ O7.prototype.clientConnect = function() {
   try {
     self.debug("Creating socket");
     this.client_sock = new sockets.websocket(this.O7_WS, null, this.O7_SSL_CA, this.O7_SSL_CERT, this.O7_SSL_KEY);
+    this.client_sock.connected = false;
     self.debug("Created socket");
   } catch(e) {
     self.debug("Socket creation exception");
@@ -242,6 +244,8 @@ O7.prototype.clientConnect = function() {
 
   this.client_sock.onconnect = function() {
     self.debug("Connected to server");
+    this.connected = true;
+    
     // После установки соединения с ws-сервером, он начинает каждые 3 сек слать
     // heartbeat-сообщения {"type":"ping","message":текущий_timestamp}
 
@@ -257,6 +261,7 @@ O7.prototype.clientConnect = function() {
 
   this.client_sock._onclose = function() {
     self.debug("Closing client socket");
+    this.connected = false;
     this.onclose = null; // to prevent recursive call
     this.close(); // just in case (for explicit calls of this function)
     self.client_sock = null;
@@ -594,7 +599,7 @@ O7.prototype.sendBufferedEvents = function() {
  */
 O7.prototype.notifyO7 = function(data) {
   try {
-    if (this.client_sock) {
+    if (this.client_sock && this.client_sock.connected) {
       this.sendObjToSock(this.client_sock, data);
     } else {
       this.saveBufferedEvent(data);
