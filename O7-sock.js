@@ -64,7 +64,7 @@ function O7() {
   this.PING_TIMEOUT = 7;
 
   this.O7_BUFFERED_EVENTS_LENGTH = 100;
-  
+
   this.debug("UID: " + this.O7_UUID);
   this.debug("Token: " + this.O7_TOKEN);
   this.debug("MAC: " + this.O7_MAC);
@@ -133,7 +133,7 @@ function O7() {
       self.addDeviceEmptyParent.call(self, self.zwayName, nodeId);
     }
   }, ZWAY_DEVICE_CHANGE_TYPES["DeviceAdded"] | ZWAY_DEVICE_CHANGE_TYPES["EnumerateExisting"]);
-  
+
   // restore rules from local storage
   this.rules = [];
   try {
@@ -144,7 +144,7 @@ function O7() {
   } catch (e) {
     this.warining("Unable to load rules, using empty list");
   }
-  
+
   // start timer for rules
   self.timerHandler = function() {
     self.rulesCheck({type: "atTime"});
@@ -245,7 +245,7 @@ O7.prototype.clientConnect = function() {
   this.client_sock.onconnect = function() {
     self.debug("Connected to server");
     this.connected = true;
-    
+
     // После установки соединения с ws-сервером, он начинает каждые 3 сек слать
     // heartbeat-сообщения {"type":"ping","message":текущий_timestamp}
 
@@ -555,7 +555,7 @@ O7.prototype.sendObjToSock = function(sock, obj, command) {
  */
 O7.prototype.getBufferedEvents = function() {
   var bufferedEvents = [];
-  
+
   try {
     bufferedEvents = loadObject("O7-bufferend-events");
     if (!Array.isArray(bufferedEvents)) {
@@ -572,7 +572,7 @@ O7.prototype.getBufferedEvents = function() {
  */
 O7.prototype.saveBufferedEvent = function(data) {
   var bufferedEvents = this.getBufferedEvents();
-  
+
   bufferedEvents.push(data);
   bufferedEvents = bufferedEvents.slice(-this.O7_BUFFERED_EVENTS_LENGTH);
   saveObject("O7-bufferend-events", bufferedEvents);
@@ -587,7 +587,7 @@ O7.prototype.sendBufferedEvents = function() {
 
   // clear buffered list
   saveObject("O7-bufferend-events", []);
-  
+
   bufferedEvents.forEach(function(event) {
     self.notifyO7(event);
   });
@@ -1065,8 +1065,12 @@ O7.prototype.ruleCheck = function(rule, event) {
 
   if (event.type === "atTime") {
     var _date = new Date();
+    var _offset = rule.utc_offset || 0
+
+    _date.setSeconds(_offset);
 
     _condition = _.findWhere(rule.conditions, {type: "atTime", hour: _date.getHours(), minute: _date.getMinutes()});
+
     if (typeof(_condition) == 'undefined' || _condition.weekdays.indexOf(_date.getDay()) === -1) {
       return; // skip
     }
@@ -1124,11 +1128,7 @@ O7.prototype.ruleCheck = function(rule, event) {
         break;
 
       case "atTime":
-        var _date = new Date(),
-            _time = _date.getHours() * 60 + _date.getHours(),
-            _from = condition.fromHour * 60 + condition.fromMinute,
-            _to = condition.toHour * 60 + condition.toMinute;
-        result &= _from <= _time && _time <= _to;
+        result &= true;
         break;
     }
   });
@@ -1180,13 +1180,14 @@ O7.prototype.ruleCheck = function(rule, event) {
  */
 O7.prototype.rulesSet = function(rules) {
   // мы не делаем валидации здесь. возможно это нужно будет добавить
-  
+
   // поправим некоторые типы данных
   for (var i in rules) {
     for (var j in rules[i].conditions) {
       if (rules[i].conditions[j].type === "atTime") {
-        rules[i].conditions[j].hour = parseInt(rules[i].conditions[j].hour, 10);
-        rules[i].conditions[j].minute = parseInt(rules[i].conditions[j].minute, 10);
+        var time = rules[i].conditions[j].time.split(':');
+        rules[i].conditions[j].hour = parseInt(time[0], 10);
+        rules[i].conditions[j].minute = parseInt(time[1], 10);
         rules[i].conditions[j].weekdays = rules[i].conditions[j].weekdays.map(function(element) { return parseInt(element, 10); });
       }
     }
@@ -1272,4 +1273,3 @@ O7.prototype.setHomeMode = function(mode) {
 };
 
 var o7 = new O7();
-
