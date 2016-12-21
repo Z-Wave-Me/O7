@@ -410,11 +410,6 @@ O7.prototype.parseMessage = function(sock, data) {
         }
 
         this.ruleCheck(rule, {type: 'manual'}); // передаем ID сценария
-
-        this.sendObjToSock(sock, {
-          action: "ruleReply",
-          data: {id: rule.id, done: true}
-        });
       } catch (e) {
         this.sendObjToSock(sock, {
           action: "ruleReply",
