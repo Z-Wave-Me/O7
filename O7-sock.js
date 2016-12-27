@@ -309,7 +309,10 @@ O7.prototype.parseMessage = function(sock, data) {
       obj  = JSON.parse(data),
       msg  = obj.message;
 
-  if (obj.type === "ping") this.ping();
+  if (obj.type === "ping") {
+    this.ping();
+    if (sock != null) { sock.send('{"type":"pong"}'); }
+  }
 
   if (typeof msg !== "object") return;
 
