@@ -976,7 +976,7 @@ O7.prototype.deviceRemove = function(dev, dead) {
     if (dead && !zDev.data.isFailed.value) {
       // try
       zway.devices[o7Dev.zwayId].SendNoOperation(function () {
-        if (zway.devices[o7Dev.zwayId].isFailed) {
+        if (zway.devices[o7Dev.zwayId].data.isFailed.value) {
           beginDeviceRemove();
         } else {
           self.notify({"action": "deviceRemoveUpdate", "data": {"status": "failed", "id": dev, "message": "Устройство не сломано, удалите его путём нажатия на кнопку.", "error": "REMOVE_DEVICE_DEAD_REACHABLE"}});
