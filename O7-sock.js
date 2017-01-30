@@ -309,7 +309,10 @@ O7.prototype.parseMessage = function(sock, data) {
       obj  = JSON.parse(data),
       msg  = obj.message;
 
-  if (obj.type === "ping") this.ping();
+  if (obj.type === "ping") {
+    this.ping();
+    if (sock != null) { sock.send('{"type":"pong"}'); }
+  }
 
   if (typeof msg !== "object") return;
 
@@ -410,11 +413,6 @@ O7.prototype.parseMessage = function(sock, data) {
         }
 
         this.ruleCheck(rule, {type: 'manual'}); // передаем ID сценария
-
-        this.sendObjToSock(sock, {
-          action: "ruleReply",
-          data: {id: rule.id, done: true}
-        });
       } catch (e) {
         this.sendObjToSock(sock, {
           action: "ruleReply",
@@ -455,6 +453,9 @@ O7.prototype.parseMessage = function(sock, data) {
         code: _code,
         data: Base64.encode(_data)
       });
+      break;
+    case "cameraEvent":
+      self.rulesCheck({type: "cameraEvent", data: msg.data });
       break;
     default:
       this.sendObjToSock(sock, {
@@ -657,6 +658,13 @@ O7.prototype.cloudAction = function(ruleId, action, args) {
   this.notify({
     action: 'cloud',
     data: {action: action, ruleId: ruleId, args: args}
+  });
+};
+
+O7.prototype.cameraAction = function(ruleId, uuid, action, args) {
+  this.notify({
+    action: 'cameraAction',
+    data: {ruleId: ruleId, uuid: uuid, action: action, args: args}
   });
 };
 
@@ -1064,10 +1072,9 @@ O7.prototype.ruleCheck = function(rule, event) {
   }
 
   if (event.type === "atTime") {
-    var _date = new Date();
+    _condition = _.findWhere(rule.conditions, {type: "atTime"});
 
-    _condition = _.findWhere(rule.conditions, {type: "atTime", hour: _date.getHours(), minute: _date.getMinutes()});
-    if (typeof(_condition) == 'undefined' || _condition.weekdays.indexOf(_date.getDay()) === -1) {
+    if (typeof(_condition) == 'undefined') {
       return; // skip
     }
   }
@@ -1081,6 +1088,13 @@ O7.prototype.ruleCheck = function(rule, event) {
 
   if (event.type === "homeMode") {
     _condition = _.findWhere(rule.conditions, {type: "homeMode"});
+    if (typeof(_condition) == 'undefined') {
+      return; // skip
+    }
+  }
+
+  if (event.type === "cameraEvent") {
+    _condition = _.findWhere(rule.conditions, {type: "cameraEvent", uuid: event.data.uuid});
     if (typeof(_condition) == 'undefined') {
       return; // skip
     }
@@ -1124,11 +1138,22 @@ O7.prototype.ruleCheck = function(rule, event) {
         break;
 
       case "atTime":
-        var _date = new Date(),
-            _time = _date.getHours() * 60 + _date.getHours(),
-            _from = condition.fromHour * 60 + condition.fromMinute,
-            _to = condition.toHour * 60 + condition.toMinute;
-        result &= _from <= _time && _time <= _to;
+        var _date = new Date();
+        var _offset = rule.utc_offset || 0;
+
+        _date.setSeconds(_offset);
+
+        result &= condition.hour == _date.getHours();
+        result &= condition.minute == _date.getMinutes();
+        result &= condition.weekdays.indexOf(_date.getDay()) >= 0;
+
+        break;
+      case "cameraEvent":
+          result &= event.type === "cameraEvent";
+          if (result) {
+            result &= condition.uuid == event.data.uuid;
+            result &= condition.value == event.data.value;
+          }
         break;
     }
   });
@@ -1158,6 +1183,10 @@ O7.prototype.ruleCheck = function(rule, event) {
           self.cloudAction(rule.id, action.action, action.args);
 
           break;
+        case "cameraEvent":
+          self.cameraAction(rule.id, action.uuid, action.id, action);
+
+          break;
       }
     });
 
@@ -1185,8 +1214,9 @@ O7.prototype.rulesSet = function(rules) {
   for (var i in rules) {
     for (var j in rules[i].conditions) {
       if (rules[i].conditions[j].type === "atTime") {
-        rules[i].conditions[j].hour = parseInt(rules[i].conditions[j].hour, 10);
-        rules[i].conditions[j].minute = parseInt(rules[i].conditions[j].minute, 10);
+        var time = rules[i].conditions[j].time.split(':');
+        rules[i].conditions[j].hour = parseInt(time[0], 10);
+        rules[i].conditions[j].minute = parseInt(time[1], 10);
         rules[i].conditions[j].weekdays = rules[i].conditions[j].weekdays.map(function(element) { return parseInt(element, 10); });
       }
     }
