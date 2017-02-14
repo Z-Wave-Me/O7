@@ -344,7 +344,7 @@ O7.prototype.parseMessage = function(sock, data) {
         data: {
           mac: this.O7_MAC,
           homeMode: this.getHomeMode(),
-          venodor: "Z-Wave.Me",
+          vendor: "Z-Wave.Me",
           swVersion: this.swVersion,
           swCommit: this.swCommit,
           swDate: this.swDate,
