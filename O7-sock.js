@@ -39,6 +39,12 @@ function O7() {
   this.swDate = this.zway.controller.data.softwareRevisionDate.value;
   this.hwVersion = this.zway.controller.data.APIVersion.value;
 
+  if (PhilioHW && PhilioHW.nervous) {
+    var _philioInstance = controller.getInstancesByModuleName(PhilioHW.name)[0];
+    self.LEDconnected = function(val) {
+      _philioInstance && _philioInstance.nervous(val);
+    }
+  }
 
   if (!sockets.websocket) {
     this.error("Websockets are not supported. Stopping.");
@@ -245,7 +251,11 @@ O7.prototype.clientConnect = function() {
   this.client_sock.onconnect = function() {
     self.debug("Connected to server");
     this.connected = true;
-    PhilioHW && PhilioHW.nervous && PhilioHW.nervous(this.connected);
+    try {
+      self.LEDconnected(!this.connected);
+    } catch (e) {
+      self.error("Can not handle Connected LED")
+    }
     
     // После установки соединения с ws-сервером, он начинает каждые 3 сек слать
     // heartbeat-сообщения {"type":"ping","message":текущий_timestamp}
@@ -263,7 +273,11 @@ O7.prototype.clientConnect = function() {
   this.client_sock._onclose = function() {
     self.debug("Closing client socket");
     this.connected = false;
-    PhilioHW && PhilioHW.nervous && PhilioHW.nervous(this.connected);
+    try {
+      self.LEDconnected(!this.connected);
+    } catch (e) {
+      self.error("Can not handle Connected LED")
+    }
     this.onclose = null; // to prevent recursive call
     this.close(); // just in case (for explicit calls of this function)
     self.client_sock = null;
