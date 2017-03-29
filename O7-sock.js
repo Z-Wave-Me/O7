@@ -140,6 +140,13 @@ function O7() {
     }
   }, ZWAY_DEVICE_CHANGE_TYPES["DeviceAdded"] | ZWAY_DEVICE_CHANGE_TYPES["EnumerateExisting"]);
   
+  // restore homeMode
+  try {
+    this.homeMode = loadObject("O7-homeMode");
+  } catch (e) {
+    this.warining("Unable to load homeMode, keeping undefined");
+  }
+
   // restore rules from local storage
   this.rules = [];
   try {
@@ -1316,6 +1323,7 @@ O7.prototype.setHomeMode = function(mode) {
   this.homeMode = mode;
   this.rulesCheck({type: "homeMode", mode: mode});
   this.notifyHomeModeChange();
+  this.homeMode = saveObject("O7-homeMode", this.homeMode);
 };
 
 var o7 = new O7();
