@@ -67,7 +67,7 @@ function O7() {
   this.O7_WS = this.O7_PROTOCOL + "://" + this.O7_HOST + (this.O7_PORT.toString().length > 0 ? ":" + this.O7_PORT : "") + this.O7_PATH;
 
   this.RECONNECT_PERIOD = 7;
-  this.PING_TIMEOUT = 7;
+  this.PING_TIMEOUT = 30;
 
   this.O7_BUFFERED_EVENTS_LENGTH = 100;
   
