@@ -1323,7 +1323,7 @@ O7.prototype.setHomeMode = function(mode) {
   this.homeMode = mode;
   this.rulesCheck({type: "homeMode", mode: mode});
   this.notifyHomeModeChange();
-  this.homeMode = saveObject("O7-homeMode", this.homeMode);
+  saveObject("O7-homeMode", this.homeMode);
 };
 
 var o7 = new O7();
