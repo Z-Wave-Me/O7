@@ -731,9 +731,11 @@ O7.prototype.deviceToJSON = function(dev) {
   var ccTotal = 0, ccDone = 0;
   for (var instanceId in zDev.instances) {
     for (var ccId in zDev.instances[instanceId].commandClasses) {
-      ccTotal++;
-      if (zDev.instances[instanceId].commandClasses[ccId].data.interviewDone.value) {
-        ccDone++;
+      if (zDev.instances[instanceId].commandClasses[ccId].data.supported.value) {
+        ccTotal++;
+        if (zDev.instances[instanceId].commandClasses[ccId].data.interviewDone.value) {
+          ccDone++;
+        }
       }
     }
   }
