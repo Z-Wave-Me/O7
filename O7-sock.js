@@ -113,6 +113,9 @@ function O7() {
   };
   this.server_discovery.listen();
 
+  // incoming buffer
+  this.data_fragments = '';
+  
   // connect to O7
   this.clientConnect();
 
@@ -329,8 +332,18 @@ O7.prototype.ping = function() {
  */
 O7.prototype.parseMessage = function(sock, data) {
   var self = this,
-      obj  = JSON.parse(data),
-      msg  = obj.message;
+      obj;
+  
+  this.data_fragments += data;
+  try {
+    obj = JSON.parse(this.data_fragments);
+    this.data_fragments = '';
+  } catch (e) {
+    this.debug("Fragment received: " + data);
+    return;
+  }
+
+  var msg  = obj.message;
 
   if (obj.type === "ping") {
     this.ping();
