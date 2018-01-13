@@ -132,17 +132,51 @@ function O7() {
     self.addDevice.call(self, vDev);
   });
 
-  // catch newly created z-way devices (to enumerate empty structures)
-  ZWAY_DEVICE_CHANGE_TYPES = {
+  // Z-Way callback types
+  this.ZWAY_DEVICE_CHANGE_TYPES = {
     "DeviceAdded": 0x01,
+    "DeviceRemoved": 0x02,
+    "InstanceAdded": 0x04,
+    "InstanceRemoved": 0x08,
+    "CommandAdded": 0x10,
+    "CommandRemoved": 0x20,
+    "ZDDXSaved": 0x100,
     "EnumerateExisting": 0x200
   };
+  this.ZWAY_DATA_CHANGE_TYPE = {
+    "Updated": 0x01,           // Value updated or child created
+    "Invalidated": 0x02,   // Value invalidated
+    "Deleted": 0x03,           // Data holder deleted - callback is called last time before being deleted
+    "ChildCreated": 0x04,  // New direct child node created
+
+    // ORed flags
+    "PhantomUpdate": 0x40, // Data holder updated with same value (only updateTime changed)
+    "ChildEvent": 0x80   // Event from child node
+  };
+
+  // catch newly created z-way devices (to enumerate empty structures)
   this.zwayBinding = this.zway.bind(function(type, nodeId) {
-    if (type === ZWAY_DEVICE_CHANGE_TYPES["DeviceAdded"] && nodeId != self.zway.controller.data.nodeId.value) {
+    if (type === self.ZWAY_DEVICE_CHANGE_TYPES["DeviceAdded"] && nodeId != self.zway.controller.data.nodeId.value) {
       self.addDeviceEmptyParent.call(self, self.zwayName, nodeId);
     }
-  }, ZWAY_DEVICE_CHANGE_TYPES["DeviceAdded"] | ZWAY_DEVICE_CHANGE_TYPES["EnumerateExisting"]);
-  
+  }, this.ZWAY_DEVICE_CHANGE_TYPES["DeviceAdded"] | this.ZWAY_DEVICE_CHANGE_TYPES["EnumerateExisting"]);
+
+  // Bind to all future CommandClasses changes to trap interviewDone event and explicitelly push device status
+  // don't save the function for unbind - we never unbind
+  this.zway.bind(function (type, nodeId, instanceId, commandClassId) {
+    if (type === self.ZWAY_DEVICE_CHANGE_TYPES["CommandAdded"]) {
+      // don't save the function for unbind - we never unbind
+      self.zway.devices[nodeId].instances[instanceId].commandClasses[commandClassId].data.interviewDone.bind(function(type) {
+        if (this.value === true && type !== self.ZWAY_DATA_CHANGE_TYPE["Deleted"]) {
+          self.notify({
+            action: "deviceUpdate - interviewDone",
+            data: self.JSONifyDevice("ZWayVDev_" + self.zwayName + "_" + nodeId)
+          });
+        }
+      });
+    }
+  }, this.ZWAY_DEVICE_CHANGE_TYPES["CommandAdded"] | this.ZWAY_DEVICE_CHANGE_TYPES["EnumerateExisting"]);
+
   // restore homeMode
   try {
     this.homeMode = loadObject("O7-homeMode");
