@@ -169,7 +169,7 @@ function O7() {
       self.zway.devices[nodeId].instances[instanceId].commandClasses[commandClassId].data.interviewDone.bind(function(type) {
         if (this.value === true && type !== self.ZWAY_DATA_CHANGE_TYPE["Deleted"]) {
           self.notify({
-            action: "deviceUpdate - interviewDone",
+            action: "deviceUpdate",
             data: self.JSONifyDevice("ZWayVDev_" + self.zwayName + "_" + nodeId)
           });
         }
