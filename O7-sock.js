@@ -70,6 +70,12 @@ function O7() {
   this.PING_TIMEOUT = 30;
 
   this.O7_BUFFERED_EVENTS_LENGTH = 100;
+
+  this.RULES_MAX_PER_SECOND = 3;
+  this.rulesCounter = {};
+  self.rulesCounterTimer = setInterval(function() {
+    self.rulesCounter = {};
+  }, 5000);
   
   this.debug("UID: " + this.O7_UUID);
   this.debug("Token: " + this.O7_TOKEN);
@@ -1233,6 +1239,18 @@ O7.prototype.ruleCheck = function(rule, event) {
 
   if (!result) {
     return; // skip
+  }
+
+  // rule matched
+
+  if (!self.rulesCounter[rule.id]) self.rulesCounter[rule.id] = 0;
+  self.rulesCounter[rule.id]++;
+  if (self.rulesCounter[rule.id] > self.RULES_MAX_PER_SECOND) {
+    self.notifyO7({
+      action: "ruleReply",
+      data: {id: rule.id, done: false, errors: ['Превышено допустимое количество запуска сценария'], lastRulesExecuted: Object.keys(self.rulesCounter)}
+    });
+    return;
   }
 
   try {
