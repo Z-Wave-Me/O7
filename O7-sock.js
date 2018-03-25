@@ -128,6 +128,11 @@ function O7() {
   // create vDev <=> O7 Dev bindings
   this.devices = new O7Devices();
 
+  // create controller device
+  this.devices.add({
+    id: "CtrlVDev"
+  });
+
   // catch newly created devices
   controller.devices.on('created', function(vDev) {
     self.addDevice.call(self, vDev);
@@ -534,6 +539,15 @@ O7.prototype.parseMessage = function(sock, data) {
     case "cameraEvent":
       self.rulesCheck({type: "cameraEvent", data: msg.data });
       break;
+    case "getWiFiNetworks":
+      self.getWiFiNetworks();
+      break;
+    case "setWiFiNetwork":
+      self.setWiFiNetowrk(essid, security, encryption, password);
+      break;
+    case "getConnections": // TODO remove?
+      self.getConnections();
+      break;
     default:
       this.sendObjToSock(sock, {
         action: "commandNotFound",
@@ -580,6 +594,8 @@ O7.prototype.addDeviceEmptyParent = function(zwayName, zwayId) {
 };
 
 O7.prototype.getMasterDevice = function(id) {
+  if (id == "CtrlVDev") return id;
+  
   var pattern = "(ZWayVDev_([^_]+)_([0-9]+))-([0-9]+)((-[0-9]+)*)",
       match = id.match(pattern);
 
@@ -756,6 +772,10 @@ O7.prototype.JSONifyDevice = function(id) {
 };
 
 O7.prototype.deviceToJSON = function(dev) {
+  if (dev && dev.id == "CtrlVDev") {
+    return this.controllerDeviceToJSON();
+  }
+
   if (!dev || !dev.id || !dev.zwayName || !dev.zwayId) {
     return this.error("Illegal arguments");
   }
@@ -1321,6 +1341,160 @@ O7.prototype.rulesGet = function(rules) {
   return this.rules;
 };
 
+// returns the list of Wi-Fi networks nearby as a structure of { channel: integer, essid: string, security: string(WPA2PSK|WPA1PSK|NONE), encryption: string(AES|TKIP), signal: integer }
+O7.prototype.getWiFiNetworks = function() {
+  var list = system(". /lib/O7Runner.sh && /lib/wifi-helper.sh LIST")[1].split("\n");
+  list.pop(); list.pop(); list.shift(); list.shift(); // remove header and footer
+  
+  //        sprintf(msg+strlen(msg),"%-4s%-33s%-20s%-23s%-9s%-7s%-7s%-3s\n",
+  //            "Ch", "SSID", "BSSID", "Security", "Siganl(%)", "W-Mode", " ExtCH"," NT");
+  //        sprintf(msg+strlen(msg)-1,"%-4s%-5s\n", " WPS", " DPID");
+  return list.map(function(l) { var m = l.match(/(.{4})(.{33})(.{20})(.{23})(.{9})(.{7})/); var sec = m[4].trim().split("/"); return { channel: parseInt(m[1]), essid: m[2].trim(), security: sec[0], encryption: sec[1], signal: parseInt(m[5])}; });
+  // TODO!!! Parse WPA1PSKWPA2PSK and TKIPAES
+};
+
+O7.prototype.setWiFiNetwork = function(essid, security, encryption, password) {
+  system('. /lib/O7Runner.sh && /lib/wifi-helper.sh "' + essid + '" "' + security + '" "' + encryption + '" "' + password + '"')
+};
+
+O7.prototype.getConnections = function() {
+  var currentConnection = system(". /lib/O7Runner.sh && route | grep default | awk '$5 == 0 { if ($8 == \"eth0.1\") print \"ethernet\"; else if ($8 == \"apcli0\") print \"wifi\"; else if ($8 == \"eth1\") print \"mobile\"; else print $8 }'")[1].trim();
+  var availableConnections = system(". /lib/O7Runner.sh && route | grep default | awk '$5 != 0 { if ($8 == \"eth0.1\") print \"ethernet\"; else if ($8 == \"apcli0\") print \"wifi\"; else if ($8 == \"eth1\") print \"mobile\"; else print $8 }'")[1].split("\n").filter(function(x) { return x != "" });
+  var possibleConnections = [ "ethernet", "wifi", "mobile" ]; // possible values
+  
+  return { currentConnection: currentConnection, availableConnections: availableConnections, possibleConnections: possibleConnections };
+};
+
+// isFailed - новое
+
+O7.prototype.controllerDeviceToJSON = function() {
+  var self = this;
+  var ctrlName = "CtrlVDev";
+  var ctrlObject = {
+    "id": ctrlName,
+    "source": "controller",
+    "manufacturerId": 277, // Z-Wave.Me
+    "productTypeId": 4096,
+    "productId": 1,
+    "productName": "Z-Wave.Me Hub",
+    "appVersion": "2.3",
+    "security": "Security",
+    "protocol": "GPIO",
+    "interview": 100,
+    "isFailed": false,
+    "elements": []
+  };
+  
+  var _vDevTamper = controller.devices.filter(function(d) { return d.id.match(/PhilioHW_[0-9]+_zway_Tamper/); });
+  var _vDevPowerFailure = controller.devices.filter(function(d) { return d.id.match(/PhilioHW_[0-9]+_zway_PowerFailure/); });
+  var _vDevBatteryLevel = controller.devices.filter(function(d) { return d.id.match(/PhilioHW_[0-9]+_zway_BatteryLevel/); });
+  
+  if (_vDevBatteryLevel && _vDevBatteryLevel[0]) {
+    ctrlObject.elements.push({
+      "id": ctrlName + "-0-128",
+      "deviceType": "sensorMultilevel",
+      "probeType": "battery",
+      "scaleTitle": "%",
+      "level": _vDevBatteryLevel[0].get("metrics:level"),
+      "updateTime": _vDevBatteryLevel[0].get("updateTime")
+    });
+    if (!this.controllerHandlers)
+    _vDevBatteryLevel[0].on("change:metrics:level", function(vdev) {
+      self.debug("Device changed: " + vdev.id);
+      self.notifyDeviceChange(ctrlName);
+    });
+  }
+  if (_vDevTamper && _vDevTamper[0]) {
+    ctrlObject.elements.push({
+      "id": ctrlName + "-0-113-7-3",
+      "deviceType": "sensorBinary",
+      "probeType": "tamper",
+      "scaleTitle": "",
+      "level": _vDevTamper[0].get("metrics:level"),
+      "updateTime": _vDevTamper[0].get("updateTime")
+    });
+    if (!this.controllerHandlers)
+    _vDevTamper[0].on("change:metrics:level", function(vdev) {
+      self.debug("Device changed: " + vdev.id);
+      self.notifyDeviceChange(ctrlName);
+    });
+  }
+  if (_vDevPowerFailure && _vDevPowerFailure[0]) {
+    ctrlObject.elements.push({
+      "id": ctrlName + "-0-113-8-2",
+      "deviceType": "sensorBinary",
+      "probeType": "powerFailure",
+      "scaleTitle": "",
+      "level": _vDevPowerFailure[0].get("metrics:level"),
+      "updateTime": _vDevPowerFailure[0].get("updateTime")
+    });
+    if (!this.controllerHandlers)
+    _vDevPowerFailure[0].on("change:metrics:level", function(vdev) {
+      self.debug("Device changed: " + vdev.id);
+      self.notifyDeviceChange(ctrlName);
+    });
+  }
+  
+  var net = this.getConnections();
+  var d = Math.floor((new Date()).getTime()/1000);
+ 
+  var currentConnectionElement = {
+    "id": ctrlName + "-network-current",
+    "deviceType": "sensorDiscrete",
+    "probeType": "connectionType",
+    "scaleTitle": "",
+    "level": net.currentConnection,
+    "possibleLevels": net.possibleConnections,
+    "updateTime": self.controllerCurrentConnectionUpdateTime ? self.controllerCurrentConnectionUpdateTime : d
+  };
+  
+  var availableConnectionsElement = {
+    "id": ctrlName + "-network-available",
+    "deviceType": "list",
+    "probeType": "connectionTypes",
+    "scaleTitle": "",
+    "list": net.availableConnections,
+    "possibleLevels": net.possibleConnections,
+    "updateTime": self.controllerAvailableConnectionsUpdateTime ? self.controllerAvailableConnectionsUpdateTime : d
+  };
+  
+  ctrlObject.elements.push(currentConnectionElement);
+  ctrlObject.elements.push(availableConnectionsElement);
+  
+  // poll current connection
+  if (!this.controllerHandlers)
+  this.currentConnectionTimer = setInterval(function() {
+    var net = self.getConnections();
+    var d = Math.floor((new Date()).getTime()/1000);
+    
+    if (self.controllerCurrentConnection != net.currentConnection) {
+      self.controllerCurrentConnection = net.currentConnection;
+      self.controllerCurrentConnectionUpdateTime = d;
+      
+      currentConnectionElement.level = self.controllerCurrentConnection;
+      currentConnectionElement.updateTime = self.controllerCurrentConnectionUpdateTime;
+      
+      self.debug("Device changed: " + ctrlName + "-network-current");
+      self.notifyDeviceChange(ctrlName);
+    }
+    if (!_.isEqual(self.controllerAvailableConnections, net.availableConnections)) {
+      self.controllerAvailableConnections = net.availableConnections;
+      self.controllerAvailableConnectionsUpdateTime = d;
+      
+      availableConnectionsElement.level = self.controllerAvailableConnections;
+      availableConnectionsElement.updateTime = self.controllerAvailableConnectionsUpdateTime;
+      
+      self.debug("Device changed: " + ctrlName + "-network-current");
+      self.notifyDeviceChange(ctrlName);
+    }
+  }, 15*1000);
+ 
+  // handlers attached
+  this.controllerHandlers = true;
+  
+  return ctrlObject;
+};
+ 
 // Subdevice object
 
 O7SubDevice = function (prop) {
