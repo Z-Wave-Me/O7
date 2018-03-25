@@ -73,7 +73,7 @@ function O7() {
 
   this.RULES_MAX_PER_SECOND = 3;
   this.rulesCounter = {};
-  self.rulesCounterTimer = setInterval(function() {
+  this.rulesCounterTimer = setInterval(function() {
     self.rulesCounter = {};
   }, 5000);
   
