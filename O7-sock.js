@@ -543,7 +543,7 @@ O7.prototype.parseMessage = function(sock, data) {
       self.getWiFiNetworks();
       break;
     case "setWiFiNetwork":
-      self.setWiFiNetowrk(essid, security, encryption, password);
+      self.setWiFiNetowrk(msg.data.essid, msg.data.security, msg.data.encryption, msg.data.password);
       break;
     case "getConnections": // TODO remove?
       self.getConnections();
