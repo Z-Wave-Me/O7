@@ -69,7 +69,7 @@ function O7() {
   this.RECONNECT_PERIOD = 7;
   this.PING_TIMEOUT = 30;
 
-  this.O7_BUFFERED_EVENTS_LENGTH = 100;
+  this.O7_BUFFERED_EVENTS_LENGTH = 1000;
 
   this.RULES_MAX_PER_SECOND = 3;
   this.rulesCounter = {};
