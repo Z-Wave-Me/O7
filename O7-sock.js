@@ -566,6 +566,7 @@ O7.prototype.addDevice = function(vDev) {
     var id = match[1],
         zwayName = match[2],
         zwayId = parseInt(match[3]),
+        zwayChannelId = parseInt(match[4]),
         o7dev = this.devices.get(id);
 
     var _dev = this.devices.add({
@@ -575,7 +576,8 @@ O7.prototype.addDevice = function(vDev) {
     });
 
     _dev.add({
-      id: vDev.id
+      id: vDev.id,
+      zwayChannelId: zwayChannelId
     });
 
     vDev.on("change:metrics:level", function(vdev) {
@@ -843,6 +845,7 @@ O7.prototype.deviceToJSON = function(dev) {
 
     var _subdev = {
       id: subdev.id,
+      channel: subdev.zwayChannelId,
       deviceType: deviceType,
       probeType: probeType || "",
       scaleTitle: _vDev.get("metrics:scaleTitle"),
@@ -1499,6 +1502,7 @@ O7.prototype.controllerDeviceToJSON = function() {
 
 O7SubDevice = function (prop) {
   this.id = prop && prop.id || 0;
+  this.zwayChannelId = prop && prop.zwayChannelId || 0;
   // !!! add metrics here
 };
 
