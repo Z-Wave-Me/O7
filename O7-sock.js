@@ -1414,60 +1414,62 @@ O7.prototype.controllerDeviceToJSON = function() {
     });
   }
   
-  var net = this.getConnections();
-  var d = Math.floor((new Date()).getTime()/1000);
- 
-  var currentConnectionElement = {
-    "id": ctrlName + "-network-current",
-    "deviceType": "sensorDiscrete",
-    "probeType": "connectionType",
-    "scaleTitle": "",
-    "level": net.currentConnection,
-    "possibleLevels": net.possibleConnections,
-    "updateTime": self.controllerCurrentConnectionUpdateTime ? self.controllerCurrentConnectionUpdateTime : d
-  };
-  
-  var availableConnectionsElement = {
-    "id": ctrlName + "-network-available",
-    "deviceType": "list",
-    "probeType": "connectionTypes",
-    "scaleTitle": "",
-    "list": net.availableConnections,
-    "possibleLevels": net.possibleConnections,
-    "updateTime": self.controllerAvailableConnectionsUpdateTime ? self.controllerAvailableConnectionsUpdateTime : d
-  };
-  
-  ctrlObject.elements.push(currentConnectionElement);
-  ctrlObject.elements.push(availableConnectionsElement);
-  
-  // poll current connection
-  if (!this.controllerHandlers)
-  this.currentConnectionTimer = setInterval(function() {
-    var net = self.getConnections();
+  if (_vDevTamper && _vDevTamper[0]) { // for now only Philio HW have WiFi and 3G
+    var net = this.getConnections();
     var d = Math.floor((new Date()).getTime()/1000);
-    
-    if (self.controllerCurrentConnection != net.currentConnection) {
-      self.controllerCurrentConnection = net.currentConnection;
-      self.controllerCurrentConnectionUpdateTime = d;
-      
-      currentConnectionElement.level = self.controllerCurrentConnection;
-      currentConnectionElement.updateTime = self.controllerCurrentConnectionUpdateTime;
-      
-      self.debug("Device changed: " + ctrlName + "-network-current");
-      self.notifyDeviceChange(ctrlName);
-    }
-    if (!_.isEqual(self.controllerAvailableConnections, net.availableConnections)) {
-      self.controllerAvailableConnections = net.availableConnections;
-      self.controllerAvailableConnectionsUpdateTime = d;
-      
-      availableConnectionsElement.level = self.controllerAvailableConnections;
-      availableConnectionsElement.updateTime = self.controllerAvailableConnectionsUpdateTime;
-      
-      self.debug("Device changed: " + ctrlName + "-network-current");
-      self.notifyDeviceChange(ctrlName);
-    }
-  }, 15*1000);
  
+    var currentConnectionElement = {
+      "id": ctrlName + "-network-current",
+      "deviceType": "sensorDiscrete",
+      "probeType": "connectionType",
+      "scaleTitle": "",
+      "level": net.currentConnection,
+      "possibleLevels": net.possibleConnections,
+      "updateTime": self.controllerCurrentConnectionUpdateTime ? self.controllerCurrentConnectionUpdateTime : d
+    };
+    
+    var availableConnectionsElement = {
+      "id": ctrlName + "-network-available",
+      "deviceType": "list",
+      "probeType": "connectionTypes",
+      "scaleTitle": "",
+      "list": net.availableConnections,
+      "possibleLevels": net.possibleConnections,
+      "updateTime": self.controllerAvailableConnectionsUpdateTime ? self.controllerAvailableConnectionsUpdateTime : d
+    };
+  
+    ctrlObject.elements.push(currentConnectionElement);
+    ctrlObject.elements.push(availableConnectionsElement);
+    
+    // poll current connection
+    if (!this.controllerHandlers)
+    this.currentConnectionTimer = setInterval(function() {
+      var net = self.getConnections();
+      var d = Math.floor((new Date()).getTime()/1000);
+      
+      if (self.controllerCurrentConnection != net.currentConnection) {
+        self.controllerCurrentConnection = net.currentConnection;
+        self.controllerCurrentConnectionUpdateTime = d;
+        
+        currentConnectionElement.level = self.controllerCurrentConnection;
+        currentConnectionElement.updateTime = self.controllerCurrentConnectionUpdateTime;
+        
+        self.debug("Device changed: " + ctrlName + "-network-current");
+        self.notifyDeviceChange(ctrlName);
+      }
+      if (!_.isEqual(self.controllerAvailableConnections, net.availableConnections)) {
+        self.controllerAvailableConnections = net.availableConnections;
+        self.controllerAvailableConnectionsUpdateTime = d;
+        
+        availableConnectionsElement.level = self.controllerAvailableConnections;
+        availableConnectionsElement.updateTime = self.controllerAvailableConnectionsUpdateTime;
+        
+        self.debug("Device changed: " + ctrlName + "-network-current");
+        self.notifyDeviceChange(ctrlName);
+      }
+    }, 15*1000);
+  }
+  
   // handlers attached
   this.controllerHandlers = true;
   
