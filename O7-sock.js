@@ -577,7 +577,7 @@ O7.prototype.addDeviceEmptyParent = function(zwayName, zwayId) {
 };
 
 O7.prototype.getMasterDevice = function(id) {
-  if (id == "CtrlVDev") return id;
+  if (id.substr(0, "CtrlVDev".length) === "CtrlVDev") return "CtrlVDev"; // special case for controller
   
   var pattern = "(ZWayVDev_([^_]+)_([0-9]+))-([0-9]+)((-[0-9]+)*)",
       match = id.match(pattern);
@@ -1193,13 +1193,20 @@ O7.prototype.ruleCheck = function(rule, event) {
     switch (condition.type) {
       case "deviceState":
         var _dev = controller.devices.get(condition.deviceId);
+        var _val;
         if (!_dev) {
-          result = false;
-          return false;
+          // search in CtrlVDev
+          var _dev = self.controllerDeviceToJSON().elements.filter(function (e) { return e.id === condition.deviceId })[0];
+          if (_dev) {
+            _val = _dev.level;
+          } else {
+            result = false;
+            return false;
+          }
+        } else {
+          _val = _dev.get("metrics:level");
         }
-
-        var _val = _dev.get("metrics:level");
-
+        
         if (condition.comparison === "eq") {
           result = result && (_val === condition.level);
         }
@@ -1267,6 +1274,7 @@ O7.prototype.ruleCheck = function(rule, event) {
           if (_dev) {
             _dev.performCommand(action.command, action.args);
           } else {
+            // Don't check CtrlVDev because it has no actions (may be in future)
             self.error("device not found");
           }
           break;
@@ -1375,8 +1383,9 @@ O7.prototype.controllerDeviceToJSON = function() {
   var _vDevBatteryLevel = controller.devices.filter(function(d) { return d.id.match(/PhilioHW_[0-9]+_zway_BatteryLevel/); });
   
   if (_vDevBatteryLevel && _vDevBatteryLevel[0]) {
+    var elementId = ctrlName + "-0-128";
     ctrlObject.elements.push({
-      "id": ctrlName + "-0-128",
+      "id": elementId,
       "deviceType": "sensorMultilevel",
       "probeType": "battery",
       "scaleTitle": "%",
@@ -1385,13 +1394,15 @@ O7.prototype.controllerDeviceToJSON = function() {
     });
     if (!this.controllerHandlers)
     _vDevBatteryLevel[0].on("change:metrics:level", function(vdev) {
-      self.debug("Device changed: " + vdev.id);
-      self.notifyDeviceChange(ctrlName);
+      self.debug("Device changed: " + elementId);
+      self.notifyDeviceChange(elementId);
+      self.rulesCheck({type: "deviceState", deviceId: elementId});
     });
   }
   if (_vDevTamper && _vDevTamper[0]) {
+    var elementId = ctrlName + "-0-113-7-3";
     ctrlObject.elements.push({
-      "id": ctrlName + "-0-113-7-3",
+      "id": elementId,
       "deviceType": "sensorBinary",
       "probeType": "tamper",
       "scaleTitle": "",
@@ -1400,13 +1411,15 @@ O7.prototype.controllerDeviceToJSON = function() {
     });
     if (!this.controllerHandlers)
     _vDevTamper[0].on("change:metrics:level", function(vdev) {
-      self.debug("Device changed: " + vdev.id);
-      self.notifyDeviceChange(ctrlName);
+      self.debug("Device changed: " + elementId);
+      self.notifyDeviceChange(elementId);
+      self.rulesCheck({type: "deviceState", deviceId: elementId});
     });
   }
   if (_vDevPowerFailure && _vDevPowerFailure[0]) {
+    var elementId = ctrlName + "-0-113-8-2";
     ctrlObject.elements.push({
-      "id": ctrlName + "-0-113-8-2",
+      "id": elementId,
       "deviceType": "sensorBinary",
       "probeType": "powerFailure",
       "scaleTitle": "",
@@ -1415,8 +1428,9 @@ O7.prototype.controllerDeviceToJSON = function() {
     });
     if (!this.controllerHandlers)
     _vDevPowerFailure[0].on("change:metrics:level", function(vdev) {
-      self.debug("Device changed: " + vdev.id);
-      self.notifyDeviceChange(ctrlName);
+      self.debug("Device changed: " + elementId);
+      self.notifyDeviceChange(elementId);
+      self.rulesCheck({type: "deviceState", deviceId: elementId});
     });
   }
   
@@ -1424,8 +1438,11 @@ O7.prototype.controllerDeviceToJSON = function() {
     var net = this.getConnections();
     var d = Math.floor((new Date()).getTime()/1000);
  
+    var elementIdCurrent = ctrlName + "-network-current";
+    var elementIdAvailable = ctrlName + "-network-available";
+    
     var currentConnectionElement = {
-      "id": ctrlName + "-network-current",
+      "id": elementIdCurrent,
       "deviceType": "sensorDiscrete",
       "probeType": "connectionType",
       "scaleTitle": "",
@@ -1435,7 +1452,7 @@ O7.prototype.controllerDeviceToJSON = function() {
     };
     
     var availableConnectionsElement = {
-      "id": ctrlName + "-network-available",
+      "id": elementIdAvailable,
       "deviceType": "list",
       "probeType": "connectionTypes",
       "scaleTitle": "",
@@ -1460,8 +1477,9 @@ O7.prototype.controllerDeviceToJSON = function() {
         currentConnectionElement.level = self.controllerCurrentConnection;
         currentConnectionElement.updateTime = self.controllerCurrentConnectionUpdateTime;
         
-        self.debug("Device changed: " + ctrlName + "-network-current");
-        self.notifyDeviceChange(ctrlName);
+        self.debug("Device changed: " + elementIdCurrent);
+        self.notifyDeviceChange(elementIdCurrent);
+        self.rulesCheck({type: "deviceState", deviceId: elementIdCurrent});
       }
       if (!_.isEqual(self.controllerAvailableConnections, net.availableConnections)) {
         self.controllerAvailableConnections = net.availableConnections;
@@ -1470,8 +1488,9 @@ O7.prototype.controllerDeviceToJSON = function() {
         availableConnectionsElement.level = self.controllerAvailableConnections;
         availableConnectionsElement.updateTime = self.controllerAvailableConnectionsUpdateTime;
         
-        self.debug("Device changed: " + ctrlName + "-network-current");
-        self.notifyDeviceChange(ctrlName);
+        self.debug("Device changed: " + elementIdAvailable);
+        self.notifyDeviceChange(elementIdAvailable);
+        self.rulesCheck({type: "deviceState", deviceId: elementIdAvailable});
       }
     }, 15*1000);
   }
