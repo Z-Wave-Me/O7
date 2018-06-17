@@ -560,6 +560,11 @@ O7.prototype.addDevice = function(vDev) {
       self.debug("Device changed: " + vdev.id);
       self.notifyDeviceChange(vdev.id);
     });
+    
+    vDev.on("change:metrics:isFailed", function(vdev) {
+      self.debug("Device link status updated: " + vdev.id);
+      self.notifyDeviceChange(vdev.id);
+    });
   }
 };
 
@@ -803,6 +808,7 @@ O7.prototype.deviceToJSON = function(dev) {
     security: security,
     protocol: (zDev.instances[0].ZWavePlus) ? "Z-Wave" : "Z-Wave Plus",
     interview: ccTotal ? Math.floor(ccDone/ccTotal*100) : 0,
+    isFailed: zData.isFailed.value, // vDev metric isFailed is listened, but for device JSON fields fill we use zway.devices[N].data.isFailed to simplify
     elements: []
   };
 
