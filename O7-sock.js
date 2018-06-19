@@ -312,6 +312,7 @@ O7.prototype.clientConnect = function() {
     this.onclose = null; // to prevent recursive call
     this.close(); // just in case (for explicit calls of this function)
     self.client_sock = null;
+    self.data_fragments = ''; // clean saved fragments
 
     setTimeout(function() {
       if (self.client_sock === null) {
