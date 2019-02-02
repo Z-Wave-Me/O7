@@ -79,8 +79,8 @@ function O7() {
       }
     }
   };
-  this.server_sock.onerror = function() {
-    self.debug("Client error");
+  this.server_sock.onerror = function(e) {
+    self.debug("Client error: " + e);
   };
   this.server_sock.onmessage = function(ev) {
     self.parseMessage(this, ev.data);
@@ -271,7 +271,7 @@ O7.prototype.clientConnect = function() {
     this.client_sock.connected = false;
     self.debug("Created socket");
   } catch(e) {
-    self.debug("Socket creation exception");
+    self.debug("Socket creation exception: " + e.toString());
     setTimeout(function() {
       self.debug("Reconnecting...");
       self.clientConnect();
@@ -285,7 +285,7 @@ O7.prototype.clientConnect = function() {
     try {
       self.LEDconnected(!this.connected);
     } catch (e) {
-      self.error("Can not handle Connected LED")
+      self.error("Can not handle Connected LED: " + e)
     }
     
     // После установки соединения с ws-сервером, он начинает каждые 3 сек слать
@@ -307,7 +307,7 @@ O7.prototype.clientConnect = function() {
     try {
       self.LEDconnected(!this.connected);
     } catch (e) {
-      self.error("Can not handle Connected LED")
+      self.error("Can not handle Connected LED: " + e)
     }
     this.onclose = null; // to prevent recursive call
     this.close(); // just in case (for explicit calls of this function)
@@ -324,7 +324,7 @@ O7.prototype.clientConnect = function() {
   this.client_sock.onclose = this.client_sock._onclose;
 
   this.client_sock.onerror = function(ev) {
-    self.error("Willing to close client socket: " + ev.data);
+    self.error("Socket error: " + ev.data);
     this._onclose(); // internally it will close the socket and restart everything again
   };
 };
