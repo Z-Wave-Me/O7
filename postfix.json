@@ -221,6 +221,20 @@
 			"tester_last_update": "TESTED",
 			"commentary": "rename Node, disable instance 0 and 3, send reports to different channels (config and assoc)",
 			"created": "2018-08-08 15:30:00"
-		}
+		},{                                                                                                                       
+                        "id": "15",                                                                                                       
+                        "p_id": "349.8195.46620",                                                                                         
+                        "p_sku": "Willis Electric Co., Ltd.",                                                                             
+                        "product": "Willis Electric Co., Ltd.",                                                                           
+                        "apply_postfix": "1",                                                                                             
+                        "preInterview": [],                                                                                               
+                        "postInterview": ["noVDev,0-113"],
+                        "author_last_update": "",                                                                                         
+                        "author": "AIVS",                                                                                                 
+                        "tester": "AIVS",                                                                                                 
+                        "tester_last_update": "Under test",                                                                               
+                        "commentary": "remove vDevs",                                                  
+                        "created": "2019-02-11 15:20:00"                                                                                  
+                }
 	]
 }
