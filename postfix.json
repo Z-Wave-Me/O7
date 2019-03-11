@@ -235,6 +235,22 @@
                         "tester_last_update": "Under test",                                                                               
                         "commentary": "remove vDevs",                                                  
                         "created": "2019-02-11 15:20:00"                                                                                  
+                },{
+                       "id": "16",
+                        "p_id": "608.32771.4096",
+                        "p_sku": "HEI_HS1CG-Z",
+                        "product": "Heiman Gas Sensor HEI_HS1CG-Z",
+                        "apply_postfix": "1",
+                        "preInterview": [],
+                        "postInterview": [
+                                "probeType,0-113-18-2,co"
+                        ],
+                        "author_last_update": "",
+                        "author": "PS",
+                        "tester": "PS",
+                        "tester_last_update": "TESTED",
+                        "commentary": "change probeType gas to co",
+                        "created": "2019-03-07 00:40:00"
                 }
 	]
 }
