@@ -251,6 +251,20 @@
                         "tester_last_update": "TESTED",
                         "commentary": "change probeType gas to co",
                         "created": "2019-03-07 00:40:00"
+                },{                                                                                                                       
+                        "id": "17",                                                                                                       
+                        "p_id": "786.57344.57350",                                                                                         
+                        "p_sku": "NIE Technology Co., Ltd",                                                                             
+                        "product": "NIE Technology Co., Ltd",                                                                           
+                        "apply_postfix": "1",                                                                                             
+                        "preInterview": [],                                                                                               
+                        "postInterview": ["noVDev,0-113"],
+                        "author_last_update": "",                                                                                         
+                        "author": "AIVS",                                                                                                 
+                        "tester": "AIVS",                                                                                                 
+                        "tester_last_update": "Under test",                                                                               
+                        "commentary": "remove vDevs",                                                  
+                        "created": "2019-04-05 12:44:00"                                                                                  
                 }
 	]
 }
