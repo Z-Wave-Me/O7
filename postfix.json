@@ -287,6 +287,20 @@
                         "tester_last_update": "Under test",                                                                               
                         "commentary": "report from channels, remove 0,3 channels",   
                         "created": "2019-10-14 14:00:00"                                                                             
-                }
+                },{
+			"id": "19",
+			"p_id": "277.256.2048",
+			"p_sku": "ZMR_GR-105",
+			"product": "Valve control",
+			"apply_postfix": "1",
+			"preInterview": [],
+			"postInterview": ["setConfig(0,64,2,1)"],
+			"author_last_update": "",
+			"author": "AIVS",
+			"tester": "AIVS",
+			"tester_last_update": "",
+			"commentary": "Invert valve control",
+			"created": "2019-10-1414:00:00"
+		}
 	]
 }
