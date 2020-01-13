@@ -294,7 +294,7 @@
 			"product": "Valve control",
 			"apply_postfix": "1",
 			"preInterview": [],
-			"postInterview": ["setConfig(0,64,2,1)"],
+			"postInterview": ["setConfig(0,64,1,2)"],
 			"author_last_update": "",
 			"author": "AIVS",
 			"tester": "AIVS",
