@@ -300,7 +300,27 @@
 			"tester": "AIVS",
 			"tester_last_update": "",
 			"commentary": "Invert valve control",
-			"created": "2019-10-1414:00:00"
+			"created": "2019-10-14 14:00:00"
+		},{
+			"id": "20",
+			"p_id": "277.256.2304",
+			"p_sku": "Gidrolock",
+			"product": "Valve control",
+			"apply_postfix": "1",
+			"preInterview": [],
+			"postInterview": [
+				"noVDev,0-50-0",
+				"noVDev,4-48-1",
+				"noVDev,1-48-6",
+				"noVDev,0-113-5-2-A",
+				"noVDev,1-113-5-2-A"
+			],
+			"author_last_update": "",
+			"author": "AIVS",
+			"tester": "AIVS",
+			"tester_last_update": "",
+			"commentary": "hide dublicated flood sensor, watermeter",
+			"created": "2020-1-24 15:30:00"
 		}
 	]
 }
