@@ -321,6 +321,22 @@
 			"tester_last_update": "",
 			"commentary": "hide dublicated flood sensor, watermeter",
 			"created": "2020-1-24 15:30:00"
-		}
+		},{
+                       "id": "21",
+                        "p_id": "277.256.2816",
+                        "p_sku": "Pharmec FST-05KB",
+                        "product": "Alarm of gas concentration",
+                        "apply_postfix": "1",
+                        "preInterview": [],
+                        "postInterview": [
+                                "probeType,0-49-38,gas"
+                        ],
+                        "author_last_update": "",
+                        "author": "AIVS",
+                        "tester": "AIVS",
+                        "tester_last_update": "TESTED",
+                        "commentary": "change probeType to gas",
+                        "created": "2020-02-04 15:20:00"
+                }
 	]
 }
