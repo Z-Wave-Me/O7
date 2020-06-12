@@ -337,6 +337,20 @@
                         "tester_last_update": "TESTED",
                         "commentary": "change probeType to gas",
                         "created": "2020-02-04 15:20:00"
-                }
+                },{
+			"id": "22",
+			"p_id": "316.1.41",
+			"p_sku": "PHIEPAN16 / PHIRPAN16-RU",
+			"product": "PAN16 Smart Energy Plug In Switch",
+			"apply_postfix": "1",
+			"preInterview": [],
+			"postInterview": ["setConfig(0,12,1,1);"],
+			"author_last_update": "2020-06-12 15:30:00",
+			"author": "AIVS",
+			"tester": "AIVS",
+			"tester_last_update": "2020-06-12 15:30:00",
+			"commentary": "#12 - Auto report after reset. 0 - Disable, 1 - Enable",
+			"created": "2020-06-12 15:30:00"
+        	}
 	]
 }
