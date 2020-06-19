@@ -351,6 +351,110 @@
 			"tester_last_update": "2020-06-12 15:30:00",
 			"commentary": "#12 - Auto report after reset. 0 - Disable, 1 - Enable",
 			"created": "2020-06-12 15:30:00"
-        	}
+        	},{
+                        "id": "23",
+                        "p_id": "271.1538.16387",
+                        "p_sku": "FGWPF-102-ZW5",
+                        "product": "Fibaro Wall Plug",
+                        "apply_postfix": "1",
+                        "preInterview": [],
+                        "postInterview": [
+                                "noVDev,0-50-2",
+                                "noVDev,0-113",
+                                "probeType,0-49-4,meterElectric_watt"
+                        ],
+                        "author_last_update": "",
+                        "author": "AIVS",
+                        "tester": "AIVS",
+                        "tester_last_update": "Under test",
+                        "commentary": "remove vDevs, change probeType",
+                        "created": "2020-06-18 13:10:00"
+                },{
+                        "id": "24",
+                        "p_id": "271.2817.16387",
+                        "p_sku": "FGFS-101-ZW5",
+                        "product": "Fibaro Flood Sensor",
+                        "apply_postfix": "1",
+                        "preInterview": [],
+                        "postInterview": [
+                                "noVDev,0-156"
+                        ],
+                        "author_last_update": "",
+                        "author": "AIVS",
+                        "tester": "AIVS",
+                        "tester_last_update": "TESTED",
+                        "commentary": "don't create alarm sensors",
+                        "created": "2020-06-18 13:05:00"
+                },{
+                        "id": "25",
+                        "p_id": "271.3074.16387",
+                        "p_sku": "FGSD-002-ZW5",
+                        "product": "Fibaro Smoke Sensor",
+                        "apply_postfix": "1",
+                        "preInterview": [],
+                        "postInterview": [
+                                "setConfig(0,20,60,2);",
+                                "setConfig(0,21,1,1);",
+                                "setConfig(0,2,3,1);",
+                                "setConfig(0,3,3,1);",
+                                "setConfig(0,4,3,1);",
+                                "probeType,0-113-1-2,smoke",
+                                "probeType,0-113-4-2,heat",
+                                "noVDev,0-156",
+                                "noVDev,0-113-8",
+                                "noVDev,0-113-9",
+                                "noVDev,0-113-1-3",
+                                "self.zway.devices[nodeId].Alarm.data[1].bind(function(){if (this.event.value === 3) {this.event.value = 2; this.value = null}})"
+                        ],
+                        "author_last_update": "",
+                        "author": "AIVS",
+                        "tester": "AIVS",
+                        "tester_last_update": "TESTED",
+                        "commentary": "hide Alarm and AlarmSensor widgets, set tamper configs, set temperature report 10 min config, test and real smoke in one widget",
+                        "created": "2020-06-18 13:00:00"
+                },{
+                        "id": "26",
+                        "p_id": "271.1793.16384",
+                        "p_sku": "FGDW-002-ZW5",
+                        "product": "Fibaro Door/Window Sensor 2",
+                        "apply_postfix": "1",
+                        "preInterview": [],
+                        "postInterview": [
+                                "noVDev,0-113-4",
+                                "noVDev,0-113-8"
+                        ],
+                        "author_last_update": "",
+                        "author": "AIVS",
+                        "tester": "AIVS",
+                        "tester_last_update": "TESTED",
+                        "commentary": "no create alarm heat widgets, Update - To make security reports work: remove node 1 from MultiChannelAssociation group 1 and add node 1 to Association group 1",
+                        "created": "2020-06-17 15:35:00"
+                },{
+                        "id": "27",
+                        "p_id": "271.2049.16386",
+                        "p_sku": "FGMS-001-ZW5",
+                        "product": "Fibaro Motion Sensor",
+                        "apply_postfix": "1",
+                        "preInterview": [],
+                        "postInterview": [
+                                "noVDev,0-49-54",
+                                "noVDev,0-49-25",
+                                "noVDev,0-49-52",
+                                "noVDev,0-49-53",
+                                "noVDev,0-48",
+                                "noVDev,0-156",
+                                "probeType,0-113-7-8,motion",
+                                "setConfig(0,42,600,2);",
+                                "setConfig(0,62,600,2);",
+                                "setConfig(0,64,600,2);"
+                        ],
+                        "author_last_update": "",
+                        "author": "AIVS",
+                        "tester": "AIVS",
+                        "tester_last_update": "TESTED",
+                        "commentary": "don't create sensor devices, set configs to send temperature and illumination every 10 seconds",
+                        "created": "2020-06-17 15:20:00"
+                }
+
 	]
 }
