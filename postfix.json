@@ -313,7 +313,8 @@
 				"noVDev,4-48-1",
 				"noVDev,1-48-6",
 				"noVDev,0-113-5-2",
-				"noVDev,1-113-5-2"
+				"noVDev,1-113-5-2",
+				"self.zway.devices[nodeId].Battery.Get()"
 			],
 			"author_last_update": "",
 			"author": "AIVS",
