@@ -455,6 +455,22 @@
                         "tester_last_update": "TESTED",
                         "commentary": "don't create sensor devices, set configs to send temperature and illumination every 10 seconds",
                         "created": "2020-06-17 15:20:00"
+                },{
+                        "id": "28",
+                        "p_id": "316.1.6",
+                        "p_sku": "PHI_PAN08",
+                        "product": "Philio Roller Shutter",
+                        "apply_postfix": "1",
+                        "preInterview": [],
+                        "postInterview": [
+                                "noVDev,0-37"
+                        ],
+                        "author_last_update": "",
+                        "author": "AIVS",
+                        "tester": "AIVS",
+                        "tester_last_update": "TESTED",
+                        "commentary": "don't create relay widget",
+                        "created": "2020-07-28 17:50:00"
                 }
 
 	]
