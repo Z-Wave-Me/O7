@@ -330,6 +330,7 @@
                         "preInterview": [],
                         "postInterview": [
                                 "probeType,0-49-38,gas",
+				"probeType,1-113-7-2,co",
 				"noVDev,0-113-7-2"
                         ],
                         "author_last_update": "",
