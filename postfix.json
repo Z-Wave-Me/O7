@@ -472,7 +472,27 @@
                         "tester_last_update": "TESTED",
                         "commentary": "don't create relay widget",
                         "created": "2020-07-28 17:50:00"
-                }
+                },{
+			"id": "29",
+			"p_id": "271.771.16384",
+			"p_sku": "FGRM-223",
+			"product": "Fibaro Roller Shutter FGRM-223",
+			"apply_postfix": "1",
+			"preInterview": [],
+			"postInterview": [
+				"noVDev,0-113",
+				"noVDev,0-38",
+				"noVDev,0-50",
+				"noVDev,1-113",
+				"noVDev,2-38"
+			],
+			"author_last_update": "",
+			"author": "AIVS",
+			"tester": "AIVS",
+			"tester_last_update": "TESTED",
+			"commentary": "hide vDevs",
+			"created": "2020-12-23 17:00:00"
+		}
 
 	]
 }
