@@ -15,11 +15,13 @@ function O7() {
   this.swDate = this.zway.controller.data.softwareRevisionDate.value;
   this.hwVersion = this.zway.controller.data.APIVersion.value;
 
-  if (PhilioHW && PhilioHW.nervous) {
+  if (typeof PhilioHW !== "undefined" && PhilioHW && PhilioHW.nervous) {
     var _philioInstance = controller.getInstancesByModuleName(PhilioHW.name)[0];
     self.LEDconnected = function(val) {
       _philioInstance && _philioInstance.nervous(val);
-    }
+    };
+  } else {
+    self.LEDconnected = function(val) {};
   }
 
   if (!sockets.websocket) {
