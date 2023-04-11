@@ -227,7 +227,7 @@ O7.prototype.getToken = function(reset) {
   }
   if (!token) {
     token = crypto.guid();
-    saveObject("O7-auth-token", token);
+    saveObject("O7-auth-token", token, true);
     this.debug("New token generated");
   }
   return token;
@@ -655,7 +655,7 @@ O7.prototype.saveBufferedEvent = function(data) {
   
   bufferedEvents.push(data);
   bufferedEvents = bufferedEvents.slice(-this.O7_BUFFERED_EVENTS_LENGTH);
-  saveObject("O7-bufferend-events", bufferedEvents);
+  saveObject("O7-bufferend-events", bufferedEvents, 10);
 }
 
 /**
@@ -666,7 +666,7 @@ O7.prototype.sendBufferedEvents = function() {
       bufferedEvents = this.getBufferedEvents();
 
   // clear buffered list
-  saveObject("O7-bufferend-events", []);
+  saveObject("O7-bufferend-events", [], 10);
   
   bufferedEvents.forEach(function(event) {
     self.notifyO7(event);
@@ -1330,7 +1330,7 @@ O7.prototype.rulesSet = function(rules) {
   }
 
   this.rules = rules;
-  saveObject("O7-rules", rules);
+  saveObject("O7-rules", rules, true);
 };
 
 O7.prototype.rulesGet = function(rules) {
@@ -1574,7 +1574,7 @@ O7.prototype.setHomeMode = function(mode) {
   this.homeMode = mode;
   this.rulesCheck({type: "homeMode", mode: mode});
   this.notifyHomeModeChange();
-  saveObject("O7-homeMode", this.homeMode);
+  saveObject("O7-homeMode", this.homeMode, true);
 };
 
 var o7 = new O7();
