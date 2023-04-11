@@ -846,6 +846,16 @@ O7.prototype.deviceToJSON = function(dev) {
       _subdev.max = 255;
       _subdev.color = _vDev.get("metrics:color");
     }
+    if (deviceType === "thermostat") {
+      _subdev.min = 8;
+      if (_vDev.get("metrics:min")) {
+        _subdev.min = _vDev.get("metrics:min");
+      }
+      _subdev.max = 30;
+      if (_vDev.get("metrics:max")) {
+        _subdev.max = _vDev.get("metrics:max");
+      }
+    }
 
     ret.elements.push(_subdev);
   });
