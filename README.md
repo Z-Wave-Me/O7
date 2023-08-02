@@ -11,26 +11,26 @@ executeFile("O7-sock.js");
 
 == WebSocket Server usage
 
-Example on browser side:
+Example on the browser side:
 
 ```javascript
 var socket = new WebSocket("ws://192.168.0.32:4783/");
 
 socket.onclose = function(event) {
   if (event.wasClean) {
-    console.log('Соединение закрыто чисто');
+    console.log('Connection close');
   } else {
-    console.log('Обрыв соединения'); // например, "убит" процесс сервера
+    console.log('Connection dropped by server');
   }
-  console.log('Код: ' + event.code + ' причина: ' + event.reason);
+  console.log('Code: ' + event.code + ' reason: ' + event.reason);
 };
 
 socket.onmessage = function(event) {
-  console.log("Получены данные " + event.data);
+  console.log("Received " + event.data);
 };
 
 socket.onerror = function(error) {
-  console.log("Ошибка " + error.message);
+  console.log("Error " + error.message);
 };
 
 socket.onopen = function() {
